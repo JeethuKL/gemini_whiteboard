@@ -511,36 +511,52 @@ export function processWhiteboardToolCall(
         const newElements = elements.map((element: any, index: number) => {
           // For sticky notes, use Kanban-aware positioning
           if (element.type === "sticky" && (!element.x || !element.y)) {
-            // Determine column based on text content or explicit positioning
-            let column: "todo" | "inprogress" | "done" = "todo";
+            // Check if this is a meeting summary (contains "standup" or "summary")
+            const isSummary =
+              element.text &&
+              (element.text.toLowerCase().includes("standup") ||
+                element.text.toLowerCase().includes("summary") ||
+                element.text.toLowerCase().includes("sprint alpha"));
 
-            if (element.text) {
-              column = determineKanbanColumn(element.text);
+            if (isSummary) {
+              // Position summary below columns
+              element.x = 450; // Centered
+              element.y = 650; // Below main task area
+              element.color = element.color || "blue"; // Light blue for summaries
+              element.width = 600; // Wider for summary content
+            } else {
+              // Determine column based on text content for regular tasks
+              let column: "todo" | "inprogress" | "done" = "todo";
+
+              if (element.text) {
+                column = determineKanbanColumn(element.text);
+              }
+
+              // Set appropriate color based on column
+              if (!element.color) {
+                element.color =
+                  column === "todo"
+                    ? "yellow"
+                    : column === "inprogress"
+                    ? "orange"
+                    : "green";
+              }
+
+              // Count existing elements in the target column to determine Y position
+              const columnX =
+                column === "todo" ? 100 : column === "inprogress" ? 460 : 820;
+              const elementsInColumn = currentData.elements.filter(
+                (el) =>
+                  Math.abs(el.x - columnX) < 50 && el.y >= 180 && el.y < 650
+              );
+
+              const position = generateElementPosition(
+                elementsInColumn.length,
+                column
+              );
+              element.x = position.x;
+              element.y = position.y;
             }
-
-            // Set appropriate color based on column
-            if (!element.color) {
-              element.color =
-                column === "todo"
-                  ? "yellow"
-                  : column === "inprogress"
-                  ? "orange"
-                  : "green";
-            }
-
-            // Count existing elements in the target column to determine Y position
-            const columnX =
-              column === "todo" ? 100 : column === "inprogress" ? 460 : 820;
-            const elementsInColumn = currentData.elements.filter(
-              (el) => Math.abs(el.x - columnX) < 50 && el.y >= 180
-            );
-
-            const position = generateElementPosition(
-              elementsInColumn.length,
-              column
-            );
-            element.x = position.x;
-            element.y = position.y;
           } else if (!element.x || !element.y) {
             // For non-sticky elements, use default positioning
             const position = generateElementPosition(
