@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { WhiteboardData, WhiteboardElement } from '../types/whiteboard';
 import StickyNote from './StickyNote';
 import FlowNode from './FlowNode';
@@ -8,58 +8,81 @@ import ConnectionLine from './ConnectionLine';
 import Toolbar from './Toolbar';
 import JsonEditor from './JsonEditor';
 import GeminiLiveControls from './GeminiLiveControls';
+import { processWhiteboardToolCall } from '../tools/whiteboard-tools';
+import { NotificationSystem, useNotifications } from './NotificationSystem';
 
 const initialData: WhiteboardData = {
   elements: [
+    // Project Header
     {
       type: 'sticky',
-      id: 'note-1',
+      id: 'project-header',
+      x: 200,
+      y: 50,
+      text: '🚀 Digital Whiteboard App - Sprint 3 Q1 2025\n🎯 Goal: AI Integration & Kanban Features',
+      color: 'blue'
+    },
+
+    // TO DO Column Tasks (x: ~100)
+    {
+      type: 'sticky',
+      id: 'todo-1',
       x: 100,
-      y: 150,
-      text: 'Welcome to the whiteboard! 🎨',
+      y: 180,
+      text: '🔧 Add voice recognition features',
       color: 'yellow'
     },
     {
-      type: 'flow-node',
-      id: 'start',
-      x: 300,
-      y: 200,
-      label: 'Start',
-      shape: 'rectangle',
-      connections: ['decision']
-    },
-    {
-      type: 'flow-node',
-      id: 'decision',
-      x: 500,
-      y: 250,
-      label: 'Valid?',
-      shape: 'diamond',
-      connections: ['end']
-    },
-    {
-      type: 'flow-node',
-      id: 'end',
-      x: 700,
-      y: 200,
-      label: 'End',
-      shape: 'circle',
-      connections: []
-    },
-    {
-      type: 'mermaid',
-      id: 'mermaid-1',
+      type: 'sticky',
+      id: 'todo-2',
       x: 100,
-      y: 350,
-      mermaidCode: 'graph TD\n    A[Start] --> B{Decision}\n    B -->|Yes| C[Success]\n    B -->|No| D[Failure]'
+      y: 270,
+      text: '📱 Mobile responsive design',
+      color: 'yellow'
     },
     {
-      type: 'embed',
-      id: 'embed-1',
-      x: 800,
-      y: 100,
-      url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-      embedType: 'iframe'
+      type: 'sticky',
+      id: 'todo-3',
+      x: 100,
+      y: 360,
+      text: '🔐 User authentication system',
+      color: 'yellow'
+    },
+
+    // IN PROGRESS Column Tasks (x: ~460)
+    {
+      type: 'sticky',
+      id: 'inprogress-1',
+      x: 460,
+      y: 180,
+      text: '🤖 Gemini Live integration',
+      color: 'orange'
+    },
+    {
+      type: 'sticky',
+      id: 'inprogress-2',
+      x: 460,
+      y: 270,
+      text: '🎨 UI/UX improvements',
+      color: 'orange'
+    },
+
+    // DONE Column Tasks (x: ~820)
+    {
+      type: 'sticky',
+      id: 'done-1',
+      x: 820,
+      y: 180,
+      text: '✅ Basic whiteboard functionality',
+      color: 'green'
+    },
+    {
+      type: 'sticky',
+      id: 'done-2',
+      x: 820,
+      y: 270,
+      text: '🔗 Real-time collaboration setup',
+      color: 'green'
     }
   ]
 };
@@ -73,6 +96,25 @@ export default function Whiteboard() {
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Set up global function for Gemini tool calls
+  useEffect(() => {
+    (window as any).updateWhiteboardFromGemini = (toolCallArgs: any) => {
+      console.log("🎨 Updating whiteboard from Gemini:", toolCallArgs);
+      
+      // Use setData with function to get current state
+      setData(currentData => {
+        const newData = processWhiteboardToolCall(currentData, toolCallArgs);
+        console.log("📋 Updated whiteboard data:", newData);
+        return newData;
+      });
+    };
+
+    // Cleanup
+    return () => {
+      delete (window as any).updateWhiteboardFromGemini;
+    };
+  }, []); // Remove data dependency to avoid stale closures
+
   const updateElement = (id: string, updates: Partial<WhiteboardElement>) => {
     setData(prev => ({
       ...prev,
@@ -85,14 +127,39 @@ export default function Whiteboard() {
   const addElement = (type: string) => {
     let newElement: WhiteboardElement;
     
+    // Helper function to get next available Y position in a column
+    const getNextYPosition = (columnX: number) => {
+      const elementsInColumn = data.elements.filter(el => 
+        el.x >= columnX - 50 && el.x <= columnX + 250
+      );
+      const maxY = elementsInColumn.reduce((max, el) => Math.max(max, el.y), 160);
+      return maxY + 90; // Add spacing between elements
+    };
+    
+    // Determine Kanban column based on type or default to TODO
+    const getKanbanPosition = (status: 'todo' | 'inprogress' | 'done' = 'todo') => {
+      switch (status) {
+        case 'todo':
+          return { x: 100, color: 'yellow' };
+        case 'inprogress':
+          return { x: 460, color: 'orange' };
+        case 'done':
+          return { x: 820, color: 'green' };
+        default:
+          return { x: 100, color: 'yellow' };
+      }
+    };
+    
     if (type === 'sticky') {
+      // Default new sticky notes to TODO column
+      const position = getKanbanPosition('todo');
       newElement = {
         id: `${type}-${Date.now()}`,
-        x: Math.random() * 400 + 100,
-        y: Math.random() * 300 + 100,
+        x: position.x,
+        y: getNextYPosition(position.x),
         type: 'sticky',
-        text: 'New note',
-        color: 'yellow'
+        text: 'New task',
+        color: position.color
       };
     } else if (type.startsWith('flow-')) {
       newElement = {
@@ -167,7 +234,7 @@ export default function Whiteboard() {
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+    // Remove preventDefault to avoid passive event listener warning
     const delta = e.deltaY * -0.01;
     const newZoom = Math.min(Math.max(zoom + delta, 0.25), 3);
     setZoom(newZoom);
@@ -279,6 +346,63 @@ export default function Whiteboard() {
               backgroundPosition: '0 0'
             }}
           />
+          
+          {/* Kanban Columns Background */}
+          <div className="absolute inset-0">
+            {/* To Do Column */}
+            <div 
+              className="absolute bg-yellow-50/80 border-2 border-dashed border-yellow-300 rounded-xl shadow-sm backdrop-blur-sm"
+              style={{
+                left: '60px',
+                top: '140px', 
+                width: '320px',
+                height: '650px'
+              }}
+            >
+              <div className="absolute top-4 left-4 text-yellow-700 text-lg font-bold flex items-center gap-2">
+                📋 TO DO
+                <span className="text-xs bg-yellow-200 px-2 py-1 rounded-full">
+                  {data.elements.filter(el => el.x >= 60 && el.x <= 380 && el.y >= 140).length}
+                </span>
+              </div>
+            </div>
+            
+            {/* In Progress Column */}
+            <div 
+              className="absolute bg-orange-50/80 border-2 border-dashed border-orange-300 rounded-xl shadow-sm backdrop-blur-sm"
+              style={{
+                left: '420px',
+                top: '140px',
+                width: '320px', 
+                height: '650px'
+              }}
+            >
+              <div className="absolute top-4 left-4 text-orange-700 text-lg font-bold flex items-center gap-2">
+                🔄 IN PROGRESS
+                <span className="text-xs bg-orange-200 px-2 py-1 rounded-full">
+                  {data.elements.filter(el => el.x >= 420 && el.x <= 740 && el.y >= 140).length}
+                </span>
+              </div>
+            </div>
+            
+            {/* Done Column */}
+            <div 
+              className="absolute bg-green-50/80 border-2 border-dashed border-green-300 rounded-xl shadow-sm backdrop-blur-sm"
+              style={{
+                left: '780px',
+                top: '140px',
+                width: '320px',
+                height: '650px'
+              }}
+            >
+              <div className="absolute top-4 left-4 text-green-700 text-lg font-bold flex items-center gap-2">
+                ✅ DONE
+                <span className="text-xs bg-green-200 px-2 py-1 rounded-full">
+                  {data.elements.filter(el => el.x >= 780 && el.x <= 1100 && el.y >= 140).length}
+                </span>
+              </div>
+            </div>
+          </div>
           
           {/* Connections */}
           {renderConnections()}

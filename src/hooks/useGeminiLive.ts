@@ -4,6 +4,11 @@ import { GeminiLiveClient, LiveClientOptions } from "../lib/gemini-live-client";
 import { AudioRecorder } from "../lib/audio-recorder";
 import { AudioStreamer } from "../lib/audio-streamer";
 import { GeminiLiveState } from "../types/gemini-live";
+import { WhiteboardData } from "../types/whiteboard";
+import {
+  whiteboardTools,
+  processWhiteboardToolCall,
+} from "../tools/whiteboard-tools";
 
 export interface UseGeminiLiveResult {
   state: GeminiLiveState;
@@ -16,7 +21,10 @@ export interface UseGeminiLiveResult {
   volume: number;
 }
 
-export function useGeminiLive(options: LiveClientOptions): UseGeminiLiveResult {
+export function useGeminiLive(
+  options: LiveClientOptions,
+  onWhiteboardUpdate?: (data: WhiteboardData) => void
+): UseGeminiLiveResult {
   const clientRef = useRef<GeminiLiveClient | null>(null);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
@@ -26,10 +34,44 @@ export function useGeminiLive(options: LiveClientOptions): UseGeminiLiveResult {
     systemInstruction: {
       parts: [
         {
-          text: "You are a helpful AI assistant integrated into a digital whiteboard. You can see and discuss the content on the whiteboard, help users brainstorm ideas, explain concepts, and provide assistance with their work. Be concise but helpful in your responses.",
+          text: `You are a helpful AI assistant integrated into a Kanban-style digital whiteboard for project management. The whiteboard has three columns:
+
+**KANBAN LAYOUT:**
+- � **TO DO Column** (x: 60-380): Tasks that need to be started (yellow sticky notes)
+- � **IN PROGRESS Column** (x: 420-740): Tasks currently being worked on (orange sticky notes)  
+- ✅ **DONE Column** (x: 780-1100): Completed tasks (green sticky notes)
+
+**CURRENT PROJECT:**
+- 🚀 Project: Digital Whiteboard App - Sprint 3 Q1 2025
+- 🎯 Goal: AI Integration & Kanban Features
+
+**YOUR CAPABILITIES:**
+1. **Intelligent Task Placement** - Place tasks in correct columns based on status
+2. **Project Management** - Help organize tasks, set priorities, track progress
+3. **Task Creation** - Add new tasks to appropriate columns
+4. **Status Updates** - Move tasks between columns as status changes
+5. **Sprint Planning** - Help with backlog grooming and sprint planning
+
+**COLUMN POSITIONING RULES:**
+- **TO DO tasks**: x: 100, color: "yellow"
+- **IN PROGRESS tasks**: x: 460, color: "orange"  
+- **DONE tasks**: x: 820, color: "green"
+- **Y positions**: Start at 180, then 270, 360, 450, etc. (90px spacing)
+
+**WHEN USERS SAY:**
+- "I need to do X" → Add to TO DO column (x: 100)
+- "I'm working on Y" → Add to IN PROGRESS column (x: 460)
+- "I finished Z" → Add to DONE column (x: 820)
+- "Move X to in progress" → Update existing task position and color
+- "Mark Y as done" → Move task to DONE column
+- "Add a new task" → Add to TO DO by default
+- "What should I work on next?" → Suggest tasks from TO DO column
+
+Always use the update_whiteboard tool to create tasks with proper Kanban positioning. Be proactive in organizing tasks and maintaining the Kanban structure.`,
         },
       ],
     },
+    tools: [{ functionDeclarations: whiteboardTools }],
   });
 
   const [state, setState] = useState<GeminiLiveState>({
@@ -92,6 +134,68 @@ export function useGeminiLive(options: LiveClientOptions): UseGeminiLiveResult {
       setState((prev) => ({ ...prev, isSpeaking: false }));
     };
 
+    const onToolCall = (toolCall: any) => {
+      console.log("🔧 Tool call received:", toolCall);
+
+      try {
+        if (toolCall.functionCalls) {
+          toolCall.functionCalls.forEach((call: any) => {
+            if (call.name === "update_whiteboard") {
+              console.log("📝 Processing whiteboard update:", call.args);
+
+              // Send success response back to Gemini
+              clientRef.current?.sendToolResponse({
+                functionResponses: [
+                  {
+                    name: call.name,
+                    id: call.id,
+                    response: {
+                      success: true,
+                      message: "Whiteboard updated successfully",
+                    },
+                  },
+                ],
+              });
+
+              // Trigger whiteboard update callback
+              if (call.args) {
+                console.log(
+                  "🎨 Calling whiteboard update with args:",
+                  call.args
+                );
+
+                // Try global function first (main method)
+                if ((window as any).updateWhiteboardFromGemini) {
+                  (window as any).updateWhiteboardFromGemini(call.args);
+                } else if (onWhiteboardUpdate) {
+                  // Fallback to callback if provided
+                  onWhiteboardUpdate(call.args);
+                } else {
+                  console.warn("⚠️ No whiteboard update handler available");
+                }
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error("❌ Error processing tool call:", error);
+
+        // Send error response back to Gemini
+        if (toolCall.functionCalls) {
+          clientRef.current?.sendToolResponse({
+            functionResponses: toolCall.functionCalls.map((call: any) => ({
+              name: call.name,
+              id: call.id,
+              response: {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error",
+              },
+            })),
+          });
+        }
+      }
+    };
+
     clientRef.current
       .on("open", onOpen)
       .on("close", onClose)
@@ -99,7 +203,8 @@ export function useGeminiLive(options: LiveClientOptions): UseGeminiLiveResult {
       .on("audio", onAudio)
       .on("content", onContent)
       .on("interrupted", onInterrupted)
-      .on("turncomplete", onTurnComplete);
+      .on("turncomplete", onTurnComplete)
+      .on("toolcall", onToolCall);
   }, []);
 
   // Initialize/update client when API key changes
