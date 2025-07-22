@@ -5,10 +5,7 @@ import { AudioRecorder } from "../lib/audio-recorder";
 import { AudioStreamer } from "../lib/audio-streamer";
 import { GeminiLiveState } from "../types/gemini-live";
 import { WhiteboardData } from "../types/whiteboard";
-import {
-  whiteboardTools,
-  processWhiteboardToolCall,
-} from "../tools/whiteboard-tools";
+import { whiteboardTools, processToolCall } from "../tools/whiteboard-tools";
 
 export interface UseGeminiLiveResult {
   state: GeminiLiveState;
@@ -58,23 +55,33 @@ export function useGeminiLive(
 - **DONE tasks**: x: 820, color: "green"
 - **Y positions**: Start at 180, then 270, 360, 450, etc. (90px spacing)
 
+**CRITICAL: YOU MUST USE TOOLS FOR ALL TASK OPERATIONS**
+
+**AVAILABLE TOOLS:**
+1. **get_whiteboard_info** - Search and find existing tasks by text content
+2. **move_task** - Move existing tasks between columns (easiest for moving)
+3. **update_whiteboard** - Add new tasks or bulk operations
+
+**WORKFLOW FOR MOVING TASKS:**
+When user says "move X to done" or "mark Y as complete":
+1. FIRST use get_whiteboard_info to find the task (optional but helpful for verification)
+2. THEN use move_task with taskText and targetColumn
+
 **WHEN USERS SAY:**
 - "I need to do X" → ALWAYS call update_whiteboard tool to add to TO DO column (x: 100)
 - "I'm working on Y" → ALWAYS call update_whiteboard tool to add to IN PROGRESS column (x: 460)
 - "I finished Z" → ALWAYS call update_whiteboard tool to add to DONE column (x: 820)
-- "Move X to in progress" → ALWAYS call update_whiteboard tool to update existing task position and color
-- "Mark Y as done" → ALWAYS call update_whiteboard tool to move task to DONE column
-- "Add a new task" → ALWAYS call update_whiteboard tool to add to TO DO by default
-- "What should I work on next?" → Suggest tasks from TO DO column AND optionally add new ones using update_whiteboard tool
-
-**CRITICAL: YOU MUST USE THE update_whiteboard TOOL FOR ALL TASK OPERATIONS**
+- "Move X to in progress" → ALWAYS call move_task tool with taskText="X" and targetColumn="inprogress"
+- "Mark Y as done" → ALWAYS call move_task tool with taskText="Y" and targetColumn="done"
+- "What tasks are in progress?" → ALWAYS call get_whiteboard_info with query="progress" and column="inprogress"
+- "Find task about API" → ALWAYS call get_whiteboard_info with query="API"
 
 **TOOL USAGE EXAMPLES:**
+- To move existing task: Call move_task with taskText (partial match is fine) and targetColumn
 - To add new task: Call update_whiteboard with action:"add" and elements array with proper x,y,color
-- To move task: Call update_whiteboard with action:"update" to change position and color
-- To remove task: Call update_whiteboard with action:"remove" with elementIds array
+- To find tasks: Call get_whiteboard_info with search query and optional column filter
 
-ALWAYS use the update_whiteboard tool - never just describe what should happen, actually DO IT with the tool call.`,
+ALWAYS use tools - never just describe what should happen, actually DO IT with the tool calls.`,
         },
       ],
     },
@@ -157,43 +164,77 @@ ALWAYS use the update_whiteboard tool - never just describe what should happen, 
               call.args
             );
 
-            if (call.name === "update_whiteboard") {
-              console.log("📝 Processing whiteboard update:", call.args);
+            if (
+              call.name === "update_whiteboard" ||
+              call.name === "get_whiteboard_info" ||
+              call.name === "move_task"
+            ) {
+              console.log("📝 Processing tool call:", call.name, call.args);
 
-              // Send success response back to Gemini FIRST
-              clientRef.current?.sendToolResponse({
-                functionResponses: [
-                  {
-                    name: call.name,
-                    id: call.id,
-                    response: {
-                      success: true,
-                      message: "Whiteboard updated successfully",
-                    },
+              try {
+                // Process the tool call and get response
+                const result = processToolCall(
+                  // We need to get current data - let's pass it via global function
+                  (window as any).getCurrentWhiteboardData?.() || {
+                    elements: [],
                   },
-                ],
-              });
-
-              console.log("✅ Sent tool response back to Gemini");
-
-              // Trigger whiteboard update callback
-              if (call.args) {
-                console.log(
-                  "🎨 Calling whiteboard update with args:",
+                  call.name,
                   call.args
                 );
 
-                // Try global function first (main method)
-                if ((window as any).updateWhiteboardFromGemini) {
-                  console.log("🌍 Using global function to update whiteboard");
-                  (window as any).updateWhiteboardFromGemini(call.args);
-                } else if (onWhiteboardUpdate) {
-                  // Fallback to callback if provided
-                  console.log("📞 Using callback to update whiteboard");
-                  onWhiteboardUpdate(call.args);
-                } else {
-                  console.warn("⚠️ No whiteboard update handler available");
+                // Send success response back to Gemini FIRST
+                clientRef.current?.sendToolResponse({
+                  functionResponses: [
+                    {
+                      name: call.name,
+                      id: call.id,
+                      response: result.response,
+                    },
+                  ],
+                });
+
+                console.log(
+                  "✅ Sent tool response back to Gemini:",
+                  result.response
+                );
+
+                // If there's new data, update the whiteboard
+                if (result.newData && call.args) {
+                  console.log("🎨 Updating whiteboard with new data");
+
+                  // Try global function first (main method)
+                  if ((window as any).updateWhiteboardFromGemini) {
+                    console.log(
+                      "🌍 Using global function to update whiteboard"
+                    );
+                    (window as any).updateWhiteboardFromGemini(call.args);
+                  } else if (onWhiteboardUpdate) {
+                    // Fallback to callback if provided
+                    console.log("📞 Using callback to update whiteboard");
+                    onWhiteboardUpdate(result.newData);
+                  } else {
+                    console.warn("⚠️ No whiteboard update handler available");
+                  }
                 }
+              } catch (error) {
+                console.error("❌ Error processing tool call:", error);
+
+                // Send error response back to Gemini
+                clientRef.current?.sendToolResponse({
+                  functionResponses: [
+                    {
+                      name: call.name,
+                      id: call.id,
+                      response: {
+                        success: false,
+                        error:
+                          error instanceof Error
+                            ? error.message
+                            : "Unknown error",
+                      },
+                    },
+                  ],
+                });
               }
             } else {
               console.log("❓ Unknown function call:", call.name);

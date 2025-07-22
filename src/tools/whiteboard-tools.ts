@@ -3,6 +3,41 @@ import { WhiteboardData, WhiteboardElement } from "../types/whiteboard";
 
 export const whiteboardTools: FunctionDeclaration[] = [
   {
+    name: "get_whiteboard_info",
+    description: `Get current whiteboard state and task information. Use this to:
+    
+    **QUERY CAPABILITIES:**
+    - Find tasks by text content (e.g., "find task about API integration")
+    - List all tasks in a specific column (TO DO, IN PROGRESS, DONE)
+    - Get task IDs for moving tasks between columns
+    - Check current project status and task counts
+    
+    **SEARCH EXAMPLES:**
+    - "Find tasks containing 'authentication'" 
+    - "List all IN PROGRESS tasks"
+    - "What tasks are in the DONE column?"
+    - "Find task about mobile design"
+    
+    Always use this BEFORE trying to move/update existing tasks to get their IDs.`,
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        query: {
+          type: Type.STRING,
+          description:
+            "Search query - can be task text, column name (TODO/IN PROGRESS/DONE), or general description",
+        },
+        column: {
+          type: Type.STRING,
+          enum: ["todo", "inprogress", "done", "all"],
+          description:
+            "Specific column to search in, or 'all' for entire board",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
     name: "update_whiteboard",
     description: `Update the Kanban-style whiteboard with tasks and project items. The whiteboard has three columns:
 
@@ -16,6 +51,10 @@ export const whiteboardTools: FunctionDeclaration[] = [
     - IN PROGRESS column: x=460, color="orange" 
     - DONE column: x=820, color="green"
     - Y positions: 180, 270, 360, 450, etc. (90px spacing)
+    
+    **MOVING EXISTING TASKS:**
+    - Use get_whiteboard_info first to find task IDs
+    - Then use action="update" with the task ID and new position/color
     
     Use this when users:
     - Add new tasks → Place in TO DO column
@@ -118,6 +157,42 @@ export const whiteboardTools: FunctionDeclaration[] = [
       required: ["action", "reasoning"],
     },
   },
+  {
+    name: "move_task",
+    description: `Move an existing task between Kanban columns by searching for it by text content. 
+    
+    **USAGE:**
+    - "Move authentication task to IN PROGRESS" 
+    - "Mark API integration as DONE"
+    - "Move the mobile design task to TODO"
+    
+    This tool automatically:
+    1. Finds the task by searching text content
+    2. Moves it to the target column with correct position and color
+    3. Handles multiple matches by moving the first found task
+    
+    Use this instead of update_whiteboard when you want to move existing tasks.`,
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        taskText: {
+          type: Type.STRING,
+          description:
+            "Text content to search for in existing tasks (partial match is fine)",
+        },
+        targetColumn: {
+          type: Type.STRING,
+          enum: ["todo", "inprogress", "done"],
+          description: "Target column to move the task to",
+        },
+        reasoning: {
+          type: Type.STRING,
+          description: "Brief explanation of why you're moving this task",
+        },
+      },
+      required: ["taskText", "targetColumn", "reasoning"],
+    },
+  },
 ];
 
 // Helper function to generate Kanban-aware positions for new elements
@@ -143,6 +218,152 @@ export function generateElementPosition(
     x: kanbanColumns[column],
     y: startY + index * spacingY,
   };
+}
+
+// Helper function to get current whiteboard information
+export function getWhiteboardInfo(
+  currentData: WhiteboardData,
+  query: string,
+  column?: string
+): any {
+  console.log(
+    "🔍 Searching whiteboard with query:",
+    query,
+    "in column:",
+    column
+  );
+
+  const allTasks = currentData.elements.filter((el) => el.type === "sticky");
+
+  // Filter by column if specified
+  let filteredTasks = allTasks;
+  if (column && column !== "all") {
+    switch (column) {
+      case "todo":
+        filteredTasks = allTasks.filter((el) => el.x >= 60 && el.x <= 380);
+        break;
+      case "inprogress":
+        filteredTasks = allTasks.filter((el) => el.x >= 420 && el.x <= 740);
+        break;
+      case "done":
+        filteredTasks = allTasks.filter((el) => el.x >= 780 && el.x <= 1100);
+        break;
+    }
+  }
+
+  // Search by text content
+  const queryLower = query.toLowerCase();
+  const matchingTasks = filteredTasks.filter((task) => {
+    if (task.type === "sticky") {
+      return task.text.toLowerCase().includes(queryLower);
+    }
+    return false;
+  });
+
+  // Determine current column for each task
+  const tasksWithColumns = matchingTasks.map((task) => {
+    let currentColumn = "other";
+    if (task.x >= 60 && task.x <= 380) currentColumn = "todo";
+    else if (task.x >= 420 && task.x <= 740) currentColumn = "inprogress";
+    else if (task.x >= 780 && task.x <= 1100) currentColumn = "done";
+
+    return {
+      id: task.id,
+      text: task.type === "sticky" ? task.text : "",
+      currentColumn,
+      x: task.x,
+      y: task.y,
+      color: task.type === "sticky" ? task.color : "unknown",
+    };
+  });
+
+  const result = {
+    query,
+    searchColumn: column || "all",
+    totalTasks: allTasks.length,
+    matchingTasks: tasksWithColumns,
+    columnCounts: {
+      todo: allTasks.filter((el) => el.x >= 60 && el.x <= 380).length,
+      inprogress: allTasks.filter((el) => el.x >= 420 && el.x <= 740).length,
+      done: allTasks.filter((el) => el.x >= 780 && el.x <= 1100).length,
+    },
+  };
+
+  console.log("🔍 Search results:", result);
+  return result;
+}
+
+// Helper function to move a task by text search
+export function moveTaskByText(
+  currentData: WhiteboardData,
+  taskText: string,
+  targetColumn: "todo" | "inprogress" | "done",
+  reasoning: string
+): WhiteboardData {
+  console.log(
+    "🚚 Moving task with text:",
+    taskText,
+    "to column:",
+    targetColumn,
+    "- Reason:",
+    reasoning
+  );
+
+  // Find task by text content
+  const taskToMove = currentData.elements.find(
+    (el) =>
+      el.type === "sticky" &&
+      (el as any).text?.toLowerCase().includes(taskText.toLowerCase())
+  );
+
+  if (!taskToMove) {
+    console.warn("⚠️ Task not found with text:", taskText);
+    return currentData;
+  }
+
+  console.log(
+    "✅ Found task to move:",
+    taskToMove.id,
+    (taskToMove as any).text
+  );
+
+  // Get target position
+  const targetPosition = generateElementPosition(0, targetColumn);
+
+  // Count existing tasks in target column to get proper Y position
+  const targetX = targetPosition.x;
+  const tasksInTargetColumn = currentData.elements.filter(
+    (el) => Math.abs(el.x - targetX) < 50 && el.y >= 180
+  );
+
+  const newY = 180 + tasksInTargetColumn.length * 90;
+  const newColor =
+    targetColumn === "todo"
+      ? "yellow"
+      : targetColumn === "inprogress"
+      ? "orange"
+      : "green";
+
+  // Update the task
+  const updatedElements = currentData.elements.map((el) => {
+    if (el.id === taskToMove.id) {
+      return {
+        ...el,
+        x: targetX,
+        y: newY,
+        color: newColor,
+      } as any;
+    }
+    return el;
+  });
+
+  const result = {
+    ...currentData,
+    elements: updatedElements,
+  };
+
+  console.log("🎯 Task moved successfully to", targetColumn, "column");
+  return result;
 }
 
 // Helper function to determine which Kanban column based on content/context
@@ -176,6 +397,65 @@ export function determineKanbanColumn(
 
   // Default to todo
   return "todo";
+}
+
+// Helper function to process any tool call and return appropriate response
+export function processToolCall(
+  currentData: WhiteboardData,
+  toolName: string,
+  toolArgs: any
+): { newData?: WhiteboardData; response: any } {
+  console.log(`🔧 Processing tool call: ${toolName}`, toolArgs);
+
+  switch (toolName) {
+    case "get_whiteboard_info":
+      const info = getWhiteboardInfo(
+        currentData,
+        toolArgs.query,
+        toolArgs.column
+      );
+      return {
+        response: {
+          success: true,
+          data: info,
+          message: `Found ${info.matchingTasks.length} matching tasks`,
+        },
+      };
+
+    case "move_task":
+      const newData = moveTaskByText(
+        currentData,
+        toolArgs.taskText,
+        toolArgs.targetColumn,
+        toolArgs.reasoning
+      );
+      return {
+        newData,
+        response: {
+          success: true,
+          message: `Moved task containing "${toolArgs.taskText}" to ${toolArgs.targetColumn} column`,
+        },
+      };
+
+    case "update_whiteboard":
+      const updatedData = processWhiteboardToolCall(currentData, toolArgs);
+      return {
+        newData: updatedData,
+        response: {
+          success: true,
+          message: "Whiteboard updated successfully",
+        },
+      };
+
+    default:
+      console.warn("❓ Unknown tool:", toolName);
+      return {
+        response: {
+          success: false,
+          error: `Unknown tool: ${toolName}`,
+        },
+      };
+  }
 }
 
 // Helper function to process tool call and update whiteboard data

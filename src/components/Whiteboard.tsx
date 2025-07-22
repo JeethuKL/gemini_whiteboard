@@ -109,11 +109,18 @@ export default function Whiteboard() {
       });
     };
 
+    // Set up global function to get current whiteboard data
+    (window as any).getCurrentWhiteboardData = () => {
+      console.log("📊 Getting current whiteboard data for tool call");
+      return data;
+    };
+
     // Cleanup
     return () => {
       delete (window as any).updateWhiteboardFromGemini;
+      delete (window as any).getCurrentWhiteboardData;
     };
-  }, []); // Remove data dependency to avoid stale closures
+  }, [data]); // Include data dependency so getCurrentWhiteboardData returns current state
 
   const updateElement = (id: string, updates: Partial<WhiteboardElement>) => {
     setData(prev => ({
