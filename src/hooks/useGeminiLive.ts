@@ -59,15 +59,22 @@ export function useGeminiLive(
 - **Y positions**: Start at 180, then 270, 360, 450, etc. (90px spacing)
 
 **WHEN USERS SAY:**
-- "I need to do X" → Add to TO DO column (x: 100)
-- "I'm working on Y" → Add to IN PROGRESS column (x: 460)
-- "I finished Z" → Add to DONE column (x: 820)
-- "Move X to in progress" → Update existing task position and color
-- "Mark Y as done" → Move task to DONE column
-- "Add a new task" → Add to TO DO by default
-- "What should I work on next?" → Suggest tasks from TO DO column
+- "I need to do X" → ALWAYS call update_whiteboard tool to add to TO DO column (x: 100)
+- "I'm working on Y" → ALWAYS call update_whiteboard tool to add to IN PROGRESS column (x: 460)
+- "I finished Z" → ALWAYS call update_whiteboard tool to add to DONE column (x: 820)
+- "Move X to in progress" → ALWAYS call update_whiteboard tool to update existing task position and color
+- "Mark Y as done" → ALWAYS call update_whiteboard tool to move task to DONE column
+- "Add a new task" → ALWAYS call update_whiteboard tool to add to TO DO by default
+- "What should I work on next?" → Suggest tasks from TO DO column AND optionally add new ones using update_whiteboard tool
 
-Always use the update_whiteboard tool to create tasks with proper Kanban positioning. Be proactive in organizing tasks and maintaining the Kanban structure.`,
+**CRITICAL: YOU MUST USE THE update_whiteboard TOOL FOR ALL TASK OPERATIONS**
+
+**TOOL USAGE EXAMPLES:**
+- To add new task: Call update_whiteboard with action:"add" and elements array with proper x,y,color
+- To move task: Call update_whiteboard with action:"update" to change position and color
+- To remove task: Call update_whiteboard with action:"remove" with elementIds array
+
+ALWAYS use the update_whiteboard tool - never just describe what should happen, actually DO IT with the tool call.`,
         },
       ],
     },
@@ -136,14 +143,24 @@ Always use the update_whiteboard tool to create tasks with proper Kanban positio
 
     const onToolCall = (toolCall: any) => {
       console.log("🔧 Tool call received:", toolCall);
+      console.log("🔍 Tool call details:", JSON.stringify(toolCall, null, 2));
 
       try {
         if (toolCall.functionCalls) {
+          console.log("✅ Processing functionCalls:", toolCall.functionCalls);
+
           toolCall.functionCalls.forEach((call: any) => {
+            console.log(
+              "📞 Processing function call:",
+              call.name,
+              "with args:",
+              call.args
+            );
+
             if (call.name === "update_whiteboard") {
               console.log("📝 Processing whiteboard update:", call.args);
 
-              // Send success response back to Gemini
+              // Send success response back to Gemini FIRST
               clientRef.current?.sendToolResponse({
                 functionResponses: [
                   {
@@ -157,6 +174,8 @@ Always use the update_whiteboard tool to create tasks with proper Kanban positio
                 ],
               });
 
+              console.log("✅ Sent tool response back to Gemini");
+
               // Trigger whiteboard update callback
               if (call.args) {
                 console.log(
@@ -166,16 +185,22 @@ Always use the update_whiteboard tool to create tasks with proper Kanban positio
 
                 // Try global function first (main method)
                 if ((window as any).updateWhiteboardFromGemini) {
+                  console.log("🌍 Using global function to update whiteboard");
                   (window as any).updateWhiteboardFromGemini(call.args);
                 } else if (onWhiteboardUpdate) {
                   // Fallback to callback if provided
+                  console.log("📞 Using callback to update whiteboard");
                   onWhiteboardUpdate(call.args);
                 } else {
                   console.warn("⚠️ No whiteboard update handler available");
                 }
               }
+            } else {
+              console.log("❓ Unknown function call:", call.name);
             }
           });
+        } else {
+          console.warn("⚠️ No functionCalls in tool call:", toolCall);
         }
       } catch (error) {
         console.error("❌ Error processing tool call:", error);
@@ -254,12 +279,24 @@ Always use the update_whiteboard tool to create tasks with proper Kanban positio
       "Attempting to connect with API key:",
       options.apiKey?.substring(0, 10) + "..."
     );
+    console.log("📋 Tools being passed to Gemini Live:", config.tools);
+    const toolsArray = config.tools as Array<{ functionDeclarations: any[] }>;
+    console.log(
+      "🔧 Number of tools:",
+      toolsArray?.[0]?.functionDeclarations?.length
+    );
+    console.log(
+      "🛠️ Tool names:",
+      toolsArray?.[0]?.functionDeclarations?.map((t: any) => t.name)
+    );
+
     setState((prev) => ({ ...prev, error: undefined }));
     clientRef.current.disconnect();
 
     try {
       await clientRef.current.connect(model, config);
       console.log("Connected successfully!");
+      console.log("✅ Connection established with tools enabled");
     } catch (error) {
       console.error("Failed to connect:", error);
       setState((prev) => ({

@@ -13,17 +13,17 @@ import { NotificationSystem, useNotifications } from './NotificationSystem';
 
 const initialData: WhiteboardData = {
   elements: [
-    // Project Header
+    // Project Header - positioned at top center
     {
       type: 'sticky',
       id: 'project-header',
-      x: 200,
+      x: 500,
       y: 50,
       text: '🚀 Digital Whiteboard App - Sprint 3 Q1 2025\n🎯 Goal: AI Integration & Kanban Features',
       color: 'blue'
     },
 
-    // TO DO Column Tasks (x: ~100)
+    // TO DO Column Tasks (x: 100, well-spaced)
     {
       type: 'sticky',
       id: 'todo-1',
@@ -49,7 +49,7 @@ const initialData: WhiteboardData = {
       color: 'yellow'
     },
 
-    // IN PROGRESS Column Tasks (x: ~460)
+    // IN PROGRESS Column Tasks (x: 460, well-spaced)
     {
       type: 'sticky',
       id: 'inprogress-1',
@@ -67,7 +67,7 @@ const initialData: WhiteboardData = {
       color: 'orange'
     },
 
-    // DONE Column Tasks (x: ~820)
+    // DONE Column Tasks (x: 820, well-spaced)
     {
       type: 'sticky',
       id: 'done-1',
@@ -124,16 +124,100 @@ export default function Whiteboard() {
     }));
   };
 
+  // Function to reorganize all elements in their columns
+  const reorganizeElements = () => {
+    setData(prev => {
+      const newElements = [...prev.elements];
+      
+      // Separate elements by column and type
+      const todoElements = newElements.filter(el => 
+        el.type === 'sticky' && el.x >= 60 && el.x <= 380
+      ).sort((a, b) => a.y - b.y);
+      
+      const inProgressElements = newElements.filter(el => 
+        el.type === 'sticky' && el.x >= 420 && el.x <= 740
+      ).sort((a, b) => a.y - b.y);
+      
+      const doneElements = newElements.filter(el => 
+        el.type === 'sticky' && el.x >= 780 && el.x <= 1100
+      ).sort((a, b) => a.y - b.y);
+      
+      const otherElements = newElements.filter(el => 
+        el.type !== 'sticky' || (el.x < 60 || (el.x > 380 && el.x < 420) || (el.x > 740 && el.x < 780) || el.x > 1100)
+      );
+      
+      // Reorganize each column with proper spacing
+      let startY = 180;
+      const spacing = 90;
+      
+      // Reorganize TODO column
+      todoElements.forEach((el, index) => {
+        if (el.type === 'sticky') {
+          el.x = 100;
+          el.y = startY + (index * spacing);
+          el.color = 'yellow';
+        }
+      });
+      
+      // Reorganize IN PROGRESS column
+      inProgressElements.forEach((el, index) => {
+        if (el.type === 'sticky') {
+          el.x = 460;
+          el.y = startY + (index * spacing);
+          el.color = 'orange';
+        }
+      });
+      
+      // Reorganize DONE column
+      doneElements.forEach((el, index) => {
+        if (el.type === 'sticky') {
+          el.x = 820;
+          el.y = startY + (index * spacing);
+          el.color = 'green';
+        }
+      });
+      
+      return {
+        ...prev,
+        elements: [...todoElements, ...inProgressElements, ...doneElements, ...otherElements]
+      };
+    });
+  };
+
   const addElement = (type: string) => {
     let newElement: WhiteboardElement;
     
     // Helper function to get next available Y position in a column
     const getNextYPosition = (columnX: number) => {
+      // Define column boundaries more precisely
+      let columnStart, columnEnd;
+      if (columnX <= 150) { // TODO column
+        columnStart = 60;
+        columnEnd = 380;
+      } else if (columnX >= 400 && columnX <= 500) { // IN PROGRESS column
+        columnStart = 420;
+        columnEnd = 740;
+      } else { // DONE column
+        columnStart = 780;
+        columnEnd = 1100;
+      }
+      
+      // Get all elements in this column, sorted by Y position
       const elementsInColumn = data.elements.filter(el => 
-        el.x >= columnX - 50 && el.x <= columnX + 250
-      );
-      const maxY = elementsInColumn.reduce((max, el) => Math.max(max, el.y), 160);
-      return maxY + 90; // Add spacing between elements
+        el.x >= columnStart && el.x <= columnEnd && el.y >= 140 && el.type === 'sticky'
+      ).sort((a, b) => a.y - b.y);
+      
+      // Start from base position (after column header)
+      let nextY = 180;
+      
+      // Find the next available position
+      for (const element of elementsInColumn) {
+        if (element.y >= nextY) {
+          nextY = Math.max(nextY, element.y + 90); // 90px spacing between cards
+        }
+      }
+      
+      return nextY;
     };
     
     // Determine Kanban column based on type or default to TODO
@@ -196,6 +280,38 @@ export default function Whiteboard() {
       ...prev,
       elements: [...prev.elements, newElement]
     }));
+    
+    // Log the current state for debugging
+    console.log("📋 Current Kanban Board JSON Structure:");
+    console.log("=====================================");
+    setTimeout(() => {
+      setData(currentData => {
+        // Organize elements by column for display
+        const todoItems = currentData.elements.filter(el => 
+          el.type === 'sticky' && el.x >= 60 && el.x <= 380
+        ).sort((a, b) => a.y - b.y);
+        
+        const inProgressItems = currentData.elements.filter(el => 
+          el.type === 'sticky' && el.x >= 420 && el.x <= 740
+        ).sort((a, b) => a.y - b.y);
+        
+        const doneItems = currentData.elements.filter(el => 
+          el.type === 'sticky' && el.x >= 780 && el.x <= 1100
+        ).sort((a, b) => a.y - b.y);
+        
+        const otherItems = currentData.elements.filter(el => 
+          el.type !== 'sticky' || (el.x < 60 || (el.x > 380 && el.x < 420) || (el.x > 740 && el.x < 780) || el.x > 1100)
+        );
+        
+        console.log("🟡 TODO Column:", todoItems.map(item => ({ id: item.id, text: item.type === 'sticky' ? item.text : '', x: item.x, y: item.y })));
+        console.log("🟠 IN PROGRESS Column:", inProgressItems.map(item => ({ id: item.id, text: item.type === 'sticky' ? item.text : '', x: item.x, y: item.y })));
+        console.log("🟢 DONE Column:", doneItems.map(item => ({ id: item.id, text: item.type === 'sticky' ? item.text : '', x: item.x, y: item.y })));
+        console.log("⚪ Other Elements:", otherItems.map(item => ({ id: item.id, type: item.type, x: item.x, y: item.y })));
+        console.log("=====================================");
+        
+        return currentData;
+      });
+    }, 100);
   };
 
   const handleDragStart = (id: string) => {
@@ -414,6 +530,13 @@ export default function Whiteboard() {
 
       {/* Zoom controls */}
       <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-lg p-2 flex flex-col gap-2">
+        <button
+          onClick={reorganizeElements}
+          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs"
+          title="Reorganize Kanban columns"
+        >
+          📋 Organize
+        </button>
         <button
           onClick={() => setZoom(Math.min(zoom + 0.25, 3))}
           className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
