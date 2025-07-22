@@ -115,10 +115,17 @@ export default function Whiteboard() {
       return data;
     };
 
+    // Set up global function to directly set whiteboard data (for move operations)
+    (window as any).setWhiteboardData = (newData: WhiteboardData) => {
+      console.log("🔄 Directly setting whiteboard data:", newData);
+      setData(newData);
+    };
+
     // Cleanup
     return () => {
       delete (window as any).updateWhiteboardFromGemini;
       delete (window as any).getCurrentWhiteboardData;
+      delete (window as any).setWhiteboardData;
     };
   }, [data]); // Include data dependency so getCurrentWhiteboardData returns current state
 

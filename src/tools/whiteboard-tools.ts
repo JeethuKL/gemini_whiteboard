@@ -309,15 +309,49 @@ export function moveTaskByText(
     reasoning
   );
 
-  // Find task by text content
-  const taskToMove = currentData.elements.find(
-    (el) =>
-      el.type === "sticky" &&
-      (el as any).text?.toLowerCase().includes(taskText.toLowerCase())
+  // Log all current tasks for debugging
+  const allStickyTasks = currentData.elements.filter(
+    (el) => el.type === "sticky"
   );
+  console.log("📋 All available sticky tasks:");
+  allStickyTasks.forEach((task) => {
+    const stickyTask = task as any;
+    let currentColumn = "other";
+    if (task.x >= 60 && task.x <= 380) currentColumn = "todo";
+    else if (task.x >= 420 && task.x <= 740) currentColumn = "inprogress";
+    else if (task.x >= 780 && task.x <= 1100) currentColumn = "done";
+
+    console.log(`  - ${task.id}: "${stickyTask.text}" (in ${currentColumn})`);
+  });
+
+  // Find task by text content with flexible matching
+  const searchTextLower = taskText.toLowerCase();
+  const possibleMatches = allStickyTasks.filter((el) => {
+    const taskTextLower = (el as any).text?.toLowerCase() || "";
+    return (
+      taskTextLower.includes(searchTextLower) ||
+      searchTextLower.includes(taskTextLower) ||
+      // Try matching individual words
+      taskTextLower
+        .split(" ")
+        .some((word: string) => searchTextLower.includes(word)) ||
+      searchTextLower.split(" ").some((word) => taskTextLower.includes(word))
+    );
+  });
+
+  console.log(
+    `🔍 Found ${possibleMatches.length} possible matches:`,
+    possibleMatches.map((t) => (t as any).text)
+  );
+
+  const taskToMove = possibleMatches[0]; // Take the first match
 
   if (!taskToMove) {
     console.warn("⚠️ Task not found with text:", taskText);
+    console.warn(
+      "💡 Available task texts:",
+      allStickyTasks.map((t) => (t as any).text)
+    );
     return currentData;
   }
 

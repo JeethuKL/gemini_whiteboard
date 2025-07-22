@@ -199,21 +199,32 @@ ALWAYS use tools - never just describe what should happen, actually DO IT with t
                 );
 
                 // If there's new data, update the whiteboard
-                if (result.newData && call.args) {
+                if (result.newData) {
                   console.log("🎨 Updating whiteboard with new data");
 
-                  // Try global function first (main method)
-                  if ((window as any).updateWhiteboardFromGemini) {
-                    console.log(
-                      "🌍 Using global function to update whiteboard"
-                    );
-                    (window as any).updateWhiteboardFromGemini(call.args);
-                  } else if (onWhiteboardUpdate) {
-                    // Fallback to callback if provided
-                    console.log("📞 Using callback to update whiteboard");
-                    onWhiteboardUpdate(result.newData);
+                  // For move_task, we need to directly set the new data
+                  if (call.name === "move_task") {
+                    if ((window as any).setWhiteboardData) {
+                      console.log(
+                        "🔄 Directly setting whiteboard data for move operation"
+                      );
+                      (window as any).setWhiteboardData(result.newData);
+                    } else {
+                      console.warn("⚠️ setWhiteboardData not available");
+                    }
                   } else {
-                    console.warn("⚠️ No whiteboard update handler available");
+                    // For other tools, use the normal update mechanism
+                    if ((window as any).updateWhiteboardFromGemini) {
+                      console.log(
+                        "🌍 Using global function to update whiteboard"
+                      );
+                      (window as any).updateWhiteboardFromGemini(call.args);
+                    } else if (onWhiteboardUpdate) {
+                      console.log("📞 Using callback to update whiteboard");
+                      onWhiteboardUpdate(result.newData);
+                    } else {
+                      console.warn("⚠️ No whiteboard update handler available");
+                    }
                   }
                 }
               } catch (error) {
