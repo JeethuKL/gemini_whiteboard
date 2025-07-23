@@ -329,9 +329,19 @@ async function syncJiraBoard(
         // Add team member information to sync response
         DISCOVERED_TEAM_MEMBERS: teamMembersList,
         TEAM_MEMBER_COUNT: teamMembersList.length,
-        AI_INSTRUCTION: `🚨 CRITICAL: The team members working on this project are: ${teamMembersList.join(
+
+        // Simple, clear response for natural conversation
+        boardSummary: `Synced ${
+          data.issues.length
+        } issues for team: ${teamMembersList.join(", ")}`,
+        teamSummary: `Found ${
+          teamMembersList.length
+        } team members: ${teamMembersList.join(", ")}`,
+
+        // Immediate action suggestion
+        IMMEDIATE_RESPONSE: `Board synced! Team members found: ${teamMembersList.join(
           ", "
-        )}. Use ONLY these names in your conversations - do NOT use Alice, Bob, Charlie, Diana, or Eve!`,
+        )}`,
 
         // Issue breakdown by status for better context
         issuesByStatus: {
@@ -350,6 +360,13 @@ async function syncJiraBoard(
               issue.fields.status.name.toLowerCase().includes(status)
             )
           ).length,
+        },
+
+        // Structured data for response
+        responseData: {
+          totalIssues: data.issues.length,
+          teamMembers: teamMembersList,
+          boardUpdated: true,
         },
       },
     };
@@ -427,17 +444,22 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
         REAL_TEAM_MEMBERS: Object.keys(workloadData),
         TEAM_COUNT: Object.keys(workloadData).length,
 
-        // Clear instruction for AI
-        AI_INSTRUCTION: `🚨 IMPORTANT: Use ONLY these team member names in conversations: ${Object.keys(
+        // IMMEDIATE PROCESSING INSTRUCTION - Simple and direct
+        IMMEDIATE_RESPONSE: `Great! I found our team members: ${Object.keys(
           workloadData
-        ).join(
+        ).join(", ")}. Let's start our standup meeting.`,
+
+        // Clear, simple summary for natural conversation flow
+        teamSummary: `Active team members: ${Object.keys(workloadData).join(
           ", "
-        )}. DO NOT use Alice, Bob, Charlie, Diana, or Eve - they are NOT on this project!`,
+        )}`,
+
+        // Conversation starter that Gemini should use immediately
+        nextAction: `Start standup meeting with: ${Object.keys(
+          workloadData
+        ).join(", ")}`,
 
         workload: workloadData,
-        teamSummary: `Found ${
-          Object.keys(workloadData).length
-        } team members: ${Object.keys(workloadData).join(", ")}`,
         individualWorkloads: Object.keys(workloadData).map((member) => ({
           assignee: member, // Make this field very clear
           name: member,
@@ -448,11 +470,15 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
           ),
         })),
 
-        // Add explicit examples for conversation
-        CONVERSATION_STARTERS: Object.keys(workloadData).map(
-          (member) =>
-            `"Hi ${member}, I see you're working on ${workloadData[member].issues.length} tasks. How is your progress?"`
-        ),
+        // Structured data for the response
+        responseData: {
+          teamCount: Object.keys(workloadData).length,
+          teamNames: Object.keys(workloadData),
+          totalIssues: Object.values(workloadData).reduce(
+            (sum: number, member: any) => sum + member.totalIssues,
+            0
+          ),
+        },
       },
     };
   } catch (error) {

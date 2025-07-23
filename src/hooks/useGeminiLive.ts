@@ -37,9 +37,36 @@ export function useGeminiLive(
     systemInstruction: {
       parts: [
         {
-          text: `🚨 CRITICAL: DO NOT USE HARDCODED NAMES! 
+          text: `🚨 MANDATORY TOOL RESPONSE PROCESSING 🚨
+
+ABSOLUTE RULES - NEVER BREAK THESE:
+1. When you call sync_jira_board or get_team_workload, the response contains REAL_TEAM_MEMBERS
+2. You MUST use those exact team member names in your very next sentence
+3. NEVER say "Alice, Bob, Charlie, Diana, Eve" - those people don't exist on this project
+4. When you receive forced user instructions about team members, follow them exactly
+5. Always acknowledge real team data immediately when received
+
+EXAMPLES OF CORRECT BEHAVIOR:
+- After sync_jira_board returns team: "I can see our team members: Deepak V, LA Jeeththenthar CSE, gnanasambandam.sr2022csbs"
+- After get_team_workload: "Perfect! Let me start our standup with Deepak V"
+
+🚨 CRITICAL: DO NOT USE HARDCODED NAMES! 
 NEVER mention Alice, Bob, Charlie, Diana, or Eve - they are NOT on this project!
 You MUST discover team members dynamically from Jira data using tools.
+
+🚨 IMMEDIATE RESPONSE PROTOCOL:
+When you receive a user message saying "CRITICAL UPDATE: You just received tool data showing our real team members are: [names]", you must:
+1. IMMEDIATELY acknowledge those exact names
+2. NEVER use old hardcoded names again
+3. Start the standup with the real team members provided
+4. Reference specific Jira tasks for each team member
+
+🚨 TOOL RESPONSE PROCESSING:
+When sync_jira_board or get_team_workload returns data:
+1. Look for REAL_TEAM_MEMBERS or DISCOVERED_TEAM_MEMBERS in the response
+2. Use those exact names in your very next sentence
+3. Say something like: "Perfect! I can see our team members: [actual names from response]"
+4. NEVER say "I see that Bob and Alice..." - use the real names from the tool response
 
 You are 'Spark', an AI facilitator for daily standup meetings and project management. Your primary goal is to make meetings efficient, engaging, and clear for everyone. You are friendly, concise, and proactive. You live on the Kanban whiteboard, which is the team's central focus.
 
@@ -567,21 +594,70 @@ When you receive tool responses, immediately use that fresh data in your next st
                 call.args
               );
 
-              // Send success response back to Gemini FIRST
+              // ENHANCED: Create structured response for Gemini
+              let enhancedResponse = result.response;
+
+              // Send tool response back to Gemini FIRST (as per official API)
               clientRef.current?.sendToolResponse({
                 functionResponses: [
                   {
                     name: call.name,
                     id: call.id,
-                    response: result.response,
+                    response: enhancedResponse,
                   },
                 ],
               });
 
               console.log(
                 "✅ Sent tool response back to Gemini:",
-                result.response
+                enhancedResponse
               );
+
+              // CRITICAL: Force Gemini to use real team data immediately
+              if (
+                (call.name === "sync_jira_board" ||
+                  call.name === "get_team_workload") &&
+                result.response.success &&
+                (result.response.REAL_TEAM_MEMBERS ||
+                  result.response.DISCOVERED_TEAM_MEMBERS)
+              ) {
+                const teamMembers =
+                  result.response.REAL_TEAM_MEMBERS ||
+                  result.response.DISCOVERED_TEAM_MEMBERS;
+
+                console.log(
+                  "🎯 Forcing Gemini to acknowledge real team data:",
+                  teamMembers
+                );
+
+                // Wait briefly for tool response to be processed, then force team acknowledgment
+                setTimeout(() => {
+                  try {
+                    // Use the client's send method to force team acknowledgment
+                    clientRef.current?.send(
+                      [
+                        {
+                          text: `CRITICAL UPDATE: You just received tool data showing our real team members are: ${teamMembers.join(
+                            ", "
+                          )}. These are the ONLY team members on this project. NEVER mention Alice, Bob, Charlie, Diana, or Eve again - they do not exist on this project. You must immediately respond by saying: "Perfect! I can see our team members from Jira: ${teamMembers.join(
+                            ", "
+                          )}. Let's start our standup with ${teamMembers[0]}."`,
+                        },
+                      ],
+                      true
+                    );
+
+                    console.log(
+                      "🎤 Forced team acknowledgment sent to Gemini via send() method"
+                    );
+                  } catch (error) {
+                    console.error(
+                      "❌ Error sending forced team acknowledgment:",
+                      error
+                    );
+                  }
+                }, 300); // Give tool response time to be processed first
+              }
 
               // If there's new data, update the whiteboard
               if (result.newData) {
