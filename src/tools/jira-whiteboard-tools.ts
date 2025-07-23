@@ -307,12 +307,50 @@ async function syncJiraBoard(
       ],
     };
 
+    // Extract team members from synced issues
+    const teamMembersFromSync = new Set<string>();
+    data.issues.forEach((issue: any) => {
+      const assignee =
+        issue.fields.assignee?.displayName ||
+        issue.fields.assignee?.emailAddress;
+      if (assignee && assignee.trim()) {
+        teamMembersFromSync.add(assignee.trim());
+      }
+    });
+    const teamMembersList = Array.from(teamMembersFromSync);
+
     return {
       newData,
       response: {
         success: true,
         message: `Synced ${data.issues.length} issues from Jira`,
         issueCount: data.issues.length,
+
+        // Add team member information to sync response
+        DISCOVERED_TEAM_MEMBERS: teamMembersList,
+        TEAM_MEMBER_COUNT: teamMembersList.length,
+        AI_INSTRUCTION: `🚨 CRITICAL: The team members working on this project are: ${teamMembersList.join(
+          ", "
+        )}. Use ONLY these names in your conversations - do NOT use Alice, Bob, Charlie, Diana, or Eve!`,
+
+        // Issue breakdown by status for better context
+        issuesByStatus: {
+          todo: data.issues.filter((issue: any) =>
+            ["to do", "open", "new"].some((status) =>
+              issue.fields.status.name.toLowerCase().includes(status)
+            )
+          ).length,
+          inProgress: data.issues.filter((issue: any) =>
+            ["in progress", "progress"].some((status) =>
+              issue.fields.status.name.toLowerCase().includes(status)
+            )
+          ).length,
+          done: data.issues.filter((issue: any) =>
+            ["done", "complete", "resolved"].some((status) =>
+              issue.fields.status.name.toLowerCase().includes(status)
+            )
+          ).length,
+        },
       },
     };
   } catch (error) {
@@ -384,17 +422,37 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
       response: {
         success: true,
         message: "Retrieved team workload data",
+
+        // CRITICAL: These are the REAL team members for this project
+        REAL_TEAM_MEMBERS: Object.keys(workloadData),
+        TEAM_COUNT: Object.keys(workloadData).length,
+
+        // Clear instruction for AI
+        AI_INSTRUCTION: `🚨 IMPORTANT: Use ONLY these team member names in conversations: ${Object.keys(
+          workloadData
+        ).join(
+          ", "
+        )}. DO NOT use Alice, Bob, Charlie, Diana, or Eve - they are NOT on this project!`,
+
         workload: workloadData,
         teamSummary: `Found ${
           Object.keys(workloadData).length
         } team members: ${Object.keys(workloadData).join(", ")}`,
         individualWorkloads: Object.keys(workloadData).map((member) => ({
+          assignee: member, // Make this field very clear
           name: member,
           totalIssues: workloadData[member].totalIssues,
+          tasks: workloadData[member].issues, // Add this for easier access
           currentWork: workloadData[member].issues.map(
             (issue: any) => `${issue.key}: ${issue.summary} (${issue.status})`
           ),
         })),
+
+        // Add explicit examples for conversation
+        CONVERSATION_STARTERS: Object.keys(workloadData).map(
+          (member) =>
+            `"Hi ${member}, I see you're working on ${workloadData[member].issues.length} tasks. How is your progress?"`
+        ),
       },
     };
   } catch (error) {

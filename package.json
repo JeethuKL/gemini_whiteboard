@@ -12,12 +12,17 @@
   },
   "dependencies": {
     "@google/genai": "^1.10.0",
+    "@langchain/core": "^0.3.66",
+    "@langchain/google-genai": "^0.2.15",
+    "@langchain/langgraph": "^0.3.11",
     "@modelcontextprotocol/sdk": "^1.16.0",
     "eventemitter3": "^5.0.1",
+    "langchain": "^0.3.30",
     "lucide-react": "^0.344.0",
     "mermaid": "^11.8.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

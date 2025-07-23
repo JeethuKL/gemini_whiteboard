@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Mic, MicOff, Phone, PhoneOff, Settings, Volume2, HelpCircle } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, Settings, Volume2, HelpCircle, RefreshCw } from 'lucide-react';
 import { useGeminiLive } from '../hooks/useGeminiLive';
 
 interface GeminiLiveControlsProps {
@@ -27,7 +27,44 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
     apiKey: localApiKey
   });
 
-  const { state, connect, disconnect, startRecording, stopRecording, volume } = geminiLive;
+  const { state, connect, disconnect, startRecording, stopRecording, volume, updateSystemInstructionsWithJiraData } = geminiLive;
+
+  // Auto-update system instructions when connected
+  useEffect(() => {
+    const updateInstructions = async () => {
+      if (state.isConnected) {
+        console.log("🔗 Connection established, updating system instructions with Jira data...");
+        
+        // Disconnect to apply new instructions immediately
+        console.log("🔌 Disconnecting to apply new instructions...");
+        disconnect();
+        
+        // Wait for disconnection
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const success = await updateSystemInstructionsWithJiraData();
+        
+        if (success) {
+          console.log("🔗 Reconnecting with updated instructions...");
+          try {
+            await connect();
+            console.log("✅ System instructions updated and reconnected successfully!");
+          } catch (error) {
+            console.error('Auto-reconnection failed:', error);
+          }
+        }
+      }
+    };
+
+    // Only run this on the initial connection, not subsequent ones
+    if (state.isConnected) {
+      const hasRunUpdate = sessionStorage.getItem('gemini-jira-update-done');
+      if (!hasRunUpdate) {
+        sessionStorage.setItem('gemini-jira-update-done', 'true');
+        updateInstructions();
+      }
+    }
+  }, [state.isConnected, updateSystemInstructionsWithJiraData, connect, disconnect]);
 
   const handleConnect = async () => {
     if (!localApiKey) {
@@ -47,6 +84,41 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
 
   const handleDisconnect = () => {
     disconnect();
+  };
+
+  const handleRefreshJiraData = async () => {
+    console.log("🔄 Manually refreshing Jira data...");
+    const wasConnected = state.isConnected;
+    
+    // Always disconnect first to apply new instructions
+    if (wasConnected) {
+      console.log("🔌 Disconnecting to apply new instructions...");
+      disconnect();
+      // Wait for disconnection
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+    
+    const success = await updateSystemInstructionsWithJiraData();
+    
+    if (success) {
+      console.log("🔗 Reconnecting with updated instructions...");
+      try {
+        await connect();
+        alert('✅ Jira data refreshed and reconnected! Gemini now has your latest team information. Try asking: "Start our standup meeting"');
+      } catch (error) {
+        console.error('Reconnection failed:', error);
+        alert('✅ Jira data refreshed! Please click Connect to rejoin with updated team information.');
+      }
+    } else {
+      if (wasConnected) {
+        try {
+          await connect();
+        } catch (error) {
+          console.error('Reconnection failed:', error);
+        }
+      }
+      alert('❌ Failed to refresh Jira data. Please check your connection.');
+    }
   };
 
   const handleStartRecording = async () => {
@@ -199,6 +271,19 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
             </button>
           )}
         </div>
+
+        {/* Jira Data Refresh Button - Only show when connected */}
+        {state.isConnected && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefreshJiraData}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+            >
+              <RefreshCw size={14} />
+              Refresh Jira Data
+            </button>
+          </div>
+        )}
 
         {/* Recording Controls */}
         {state.isConnected && (

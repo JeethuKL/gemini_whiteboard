@@ -11,90 +11,68 @@ import GeminiLiveControls from './GeminiLiveControls';
 import { processWhiteboardToolCall } from '../tools/whiteboard-tools';
 import { NotificationSystem, useNotifications } from './NotificationSystem';
 
+// Clean initial state - no mock data, just empty canvas
 const initialData: WhiteboardData = {
-  elements: [
-    // Project Header - positioned at top center
-    {
-      type: 'sticky',
-      id: 'project-header',
-      x: 500,
-      y: 50,
-      text: '🚀 Digital Whiteboard App - Sprint 3 Q1 2025\n🎯 Goal: AI Integration & Kanban Features',
-      color: 'blue'
-    },
+  elements: []
+};
 
-    // TO DO Column Tasks (x: 100, well-spaced)
-    {
-      type: 'sticky',
-      id: 'todo-1',
-      x: 100,
-      y: 180,
-      text: '🔧 Add voice recognition features',
-      color: 'yellow'
-    },
-    {
-      type: 'sticky',
-      id: 'todo-2',
-      x: 100,
-      y: 270,
-      text: '📱 Mobile responsive design',
-      color: 'yellow'
-    },
-    {
-      type: 'sticky',
-      id: 'todo-3',
-      x: 100,
-      y: 360,
-      text: '🔐 User authentication system',
-      color: 'yellow'
-    },
-
-    // IN PROGRESS Column Tasks (x: 460, well-spaced)
-    {
-      type: 'sticky',
-      id: 'inprogress-1',
-      x: 460,
-      y: 180,
-      text: '🤖 Gemini Live integration',
-      color: 'orange'
-    },
-    {
-      type: 'sticky',
-      id: 'inprogress-2',
-      x: 460,
-      y: 270,
-      text: '🎨 UI/UX improvements',
-      color: 'orange'
-    },
-
-    // DONE Column Tasks (x: 820, well-spaced)
-    {
-      type: 'sticky',
-      id: 'done-1',
-      x: 820,
-      y: 180,
-      text: '✅ Basic whiteboard functionality',
-      color: 'green'
-    },
-    {
-      type: 'sticky',
-      id: 'done-2',
-      x: 820,
-      y: 270,
-      text: '🔗 Real-time collaboration setup',
-      color: 'green'
-    }
-  ]
+// Welcome Screen Component
+const WelcomeScreen: React.FC = () => {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+      <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            🚀 Spark AI Facilitator
+          </h1>
+          <p className="text-lg text-gray-600">
+            Your intelligent meeting assistant
+          </p>
+        </div>
+        
+        <div className="mb-6">
+          <div className="inline-flex items-center px-4 py-2 bg-blue-100 rounded-full">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+            <span className="text-blue-800 font-medium">Connecting to Jira...</span>
+          </div>
+        </div>
+        
+        <div className="text-sm text-gray-500 space-y-1">
+          <p>✨ Fetching your team's current sprint data</p>
+          <p>👥 Loading team member assignments</p>
+          <p>📋 Preparing your Kanban board</p>
+        </div>
+        
+        <div className="mt-6 text-xs text-gray-400">
+          Connect to Gemini Live to begin your meeting
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function Whiteboard() {
   const [data, setData] = useState<WhiteboardData>(initialData);
+  const [hasJiraData, setHasJiraData] = useState(false);
   const [draggedElement, setDraggedElement] = useState<string | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const { addNotification, notifications, removeNotification } = useNotifications();
+
+  // Function to handle Jira data loaded
+  const handleJiraDataLoaded = () => {
+    if (!hasJiraData) {
+      setHasJiraData(true);
+      addNotification({
+        type: 'success',
+        message: '🎉 Jira Data Loaded! Your sprint data is ready for the meeting',
+        duration: 3000
+      });
+    }
+  };
 
   // Set up global function for Gemini tool calls
   useEffect(() => {
@@ -105,6 +83,17 @@ export default function Whiteboard() {
       setData(currentData => {
         const newData = processWhiteboardToolCall(currentData, toolCallArgs);
         console.log("📋 Updated whiteboard data:", newData);
+        
+        // Check if this update contains Jira data
+        const hasJiraElements = newData.elements.some(el => 
+          el.id.startsWith('jira-') || el.id === 'sprint-header'
+        );
+        
+        if (hasJiraElements) {
+          console.log("🎯 Jira data detected in update! Switching to Kanban view");
+          handleJiraDataLoaded();
+        }
+        
         return newData;
       });
     };
@@ -119,6 +108,16 @@ export default function Whiteboard() {
     (window as any).setWhiteboardData = (newData: WhiteboardData) => {
       console.log("🔄 Directly setting whiteboard data:", newData);
       setData(newData);
+      
+      // Check if this is Jira data being loaded (contains sprint header or jira elements)
+      const hasJiraElements = newData.elements.some(el => 
+        el.id.startsWith('jira-') || el.id === 'sprint-header'
+      );
+      
+      if (hasJiraElements) {
+        console.log("🎯 Jira data detected! Switching to Kanban view");
+        handleJiraDataLoaded();
+      }
     };
 
     // Cleanup
@@ -449,6 +448,9 @@ export default function Whiteboard() {
       <Toolbar onAddElement={addElement} />
       <GeminiLiveControls />
       
+      {/* Show Welcome Screen until Jira data is loaded */}
+      {!hasJiraData && <WelcomeScreen />}
+      
       <div
         ref={containerRef}
         id="whiteboard-container"
@@ -457,6 +459,10 @@ export default function Whiteboard() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
+        style={{
+          opacity: hasJiraData ? 1 : 0.3,
+          pointerEvents: hasJiraData ? 'auto' : 'none'
+        }}
       >
         <div
           className="absolute inset-0 origin-top-left"
@@ -567,6 +573,7 @@ export default function Whiteboard() {
       </div>
 
       <JsonEditor data={data} onDataChange={setData} />
+      <NotificationSystem notifications={notifications} onRemove={removeNotification} />
     </div>
   );
 }
