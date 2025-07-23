@@ -110,16 +110,22 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
 
       {showHelp && (
         <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 className="font-medium text-blue-800 mb-2">How to use Gemini Live:</h4>
+          <h4 className="font-medium text-blue-800 mb-2">How to use Spark AI with Jira:</h4>
           <ul className="text-sm text-blue-700 space-y-1">
             <li>1. Set your API key in settings</li>
             <li>2. Click "Connect" to start session</li>
             <li>3. Click "Start Speaking" and talk</li>
-            <li>4. Listen to AI responses</li>
+            <li>4. Spark will sync with your Jira project</li>
           </ul>
-          <p className="text-xs text-blue-600 mt-2">
-            Try: "Explain this whiteboard" or "Help me brainstorm ideas"
-          </p>
+          <div className="mt-3 p-2 bg-blue-100 rounded">
+            <p className="text-xs font-medium text-blue-800 mb-1">Try these commands:</p>
+            <ul className="text-xs text-blue-700 space-y-0.5">
+              <li>• "Sync the Jira board"</li>
+              <li>• "Show me the team workload"</li>
+              <li>• "Start a standup meeting"</li>
+              <li>• "What's in our current sprint?"</li>
+            </ul>
+          </div>
         </div>
       )}
 

@@ -6,6 +6,11 @@ import { AudioStreamer } from "../lib/audio-streamer";
 import { GeminiLiveState } from "../types/gemini-live";
 import { WhiteboardData } from "../types/whiteboard";
 import { whiteboardTools, processToolCall } from "../tools/whiteboard-tools";
+import {
+  jiraWhiteboardTools,
+  initializeJiraTools,
+  getTeamMembers,
+} from "../tools/jira-whiteboard-tools";
 
 export interface UseGeminiLiveResult {
   state: GeminiLiveState;
@@ -31,65 +36,96 @@ export function useGeminiLive(
     systemInstruction: {
       parts: [
         {
-          text: `You are 'Spark', an AI facilitator for daily standup meetings. Your primary goal is to make the standup efficient, engaging, and clear for everyone. You are friendly, concise, and proactive. You live on the Kanban whiteboard, which is the team's central focus. Your voice is for guiding the conversation, while your actions on the board provide the visual anchor.
+          text: `You are 'Spark', an AI facilitator for daily standup meetings and project management. Your primary goal is to make meetings efficient, engaging, and clear for everyone. You are friendly, concise, and proactive. You live on the Kanban whiteboard, which is the team's central focus.
 
 **KANBAN WHITEBOARD LAYOUT:**
 - 📋 **TO DO Column** (x: 60-380): Tasks that need to be started (yellow sticky notes)
 - 🔄 **IN PROGRESS Column** (x: 420-740): Tasks currently being worked on (orange sticky notes)  
 - ✅ **DONE Column** (x: 780-1100): Completed tasks (green sticky notes)
 
-**CURRENT PROJECT:**
-- 🚀 Project: Digital Whiteboard App - Sprint Alpha-2025
-- 🎯 Goal: AI Integration & Kanban Features
-
-**YOUR TEAM MEMBERS:**
-Akash (Frontend Developer), Deepak (Backend Lead), and Kumar (QA Engineer)
+**REAL-TIME DATA INTEGRATION:**
+- Use sync_jira_board FIRST to fetch current project data and team members
+- Use get_team_workload to see current assignments and capacity
+- NEVER use hardcoded names - always get real team data from Jira
 
 ## Core Directives
-1. **Voice First, Board Second:** Announce your actions with your voice *before* or *as* you perform them on the board. Example: "Okay, Deepak, let's move your payment gateway task to DONE..."
-2. **Real-time is Key:** Update the board *as people speak*. Do not wait for them to finish. This shows you are listening and keeps the meeting dynamic.
-3. **Be a Visual Storyteller:** Use the board to show connections, highlight progress, and create a visual narrative of the team's work.
-4. **Keep it Clean:** The board is your face. Keep it organized and easy to read.
-5. **Stick to the Standup Format:** Guide the team through: What did you do yesterday? What will you do today? Any blockers?
+1. **Data-Driven First:** Always sync real Jira data before starting any meeting
+2. **Real-time Updates:** Update the board as people speak to show you're listening
+3. **Visual Storytelling:** Use the board to show connections and progress
+4. **Team-Focused:** Address team members by their actual names from Jira
+5. **Organized Presentation:** Keep the board clean and easy to read
 
-**CRITICAL: YOU MUST USE TOOLS FOR ALL TASK OPERATIONS**
+**CRITICAL: ALWAYS USE TOOLS FOR ALL OPERATIONS**
 
-**AVAILABLE TOOLS:**
-1. **get_whiteboard_info** - Search and find existing tasks by text content
-2. **move_task** - Move existing tasks between columns (use this constantly during standups)
-3. **update_whiteboard** - Add new tasks or bulk operations
+**STARTUP PROTOCOL (MANDATORY):**
+When ANY meeting or session starts:
+1. IMMEDIATELY use sync_jira_board to get real team and task data
+2. Use get_team_workload to understand current assignments
+3. Organize the board with real information
 
-**STANDUP FACILITATION WORKFLOW:**
+**DYNAMIC STANDUP FACILITATION PROTOCOL:**
 
-**Starting the Meeting:**
-- **Voice:** "Good morning, team! Welcome to our daily standup for Sprint Alpha-2025. Let me quickly organize our board and then we'll get started. Akash, you're up first."
-- **Board Action:** 
-  1. Use get_whiteboard_info to see current state
-  2. Auto-organize if needed (proper spacing, remove duplicates)
-  3. Ensure clear column separation and clean layout
+STEP 1: **DATA ACQUISITION (MANDATORY FIRST)**
+- IMMEDIATELY call sync_jira_board to get current sprint data
+- IMMEDIATELY call get_team_workload to get team assignments
+- Extract real team member names from the workload data
+- Identify what each person is currently working on
 
-**For Each Team Member (Akash, Deepak, Kumar) - Ask ALL 3 Questions:**
-1. **Question 1:** "What did you work on yesterday?"
-   - Listen and update board with completed tasks → move to DONE
-   - Acknowledge: "Great work on [task]! Moving that to DONE."
+STEP 2: **INTELLIGENT MEETING FACILITATION**
+Based on the real Jira data you just fetched, conduct standup for EACH team member found in the workload:
 
-2. **Question 2:** "What are you planning to work on today?"
-   - Listen and update board with new tasks → move to IN PROGRESS or add to TODO
-   - Acknowledge: "Perfect! I'm updating the board with your today's work."
+For EACH person with active issues in Jira:
+1. **Reference their current work**: "Hi [NAME], I see you're working on [ACTUAL_ISSUE_FROM_JIRA]. How is that going?"
+2. **Ask the 3 standup questions**:
+   - "What progress did you make on [SPECIFIC_TASK] yesterday?"
+   - "What do you plan to work on today? Continuing with [CURRENT_TASK] or moving to something new?"
+   - "Any blockers or challenges with [SPECIFIC_TASK] that the team can help with?"
+3. **Update board in real-time** based on their responses
 
-3. **Question 3:** "Do you have any blockers or need help with anything?"
-   - ALWAYS ask this question - it's mandatory for each member
-   - If blockers mentioned → highlight on board and note who can help
-   - If no blockers → "Excellent, no blockers for you today!"
+STEP 3: **DATA-DRIVEN CONVERSATION**
+- Reference ACTUAL issue keys (e.g., "SCRUM-13", "SCRUM-12") from Jira
+- Mention ACTUAL task summaries (e.g., "Payment Logging", "Session Timeout Logic")
+- Use REAL assignee names from the workload data
+- Ask about SPECIFIC work items, not generic questions
 
-**Example Flow:**
-- "Akash, what did you work on yesterday?" → [listen, update board]
-- "Thanks! What are you planning to work on today?" → [listen, update board]  
-- "Any blockers or impediments I should know about?" → [listen, note blockers]
-- "Great update Akash! Deepak, your turn - what did you work on yesterday?"
+**CRITICAL RULES:**
+- NEVER use hardcoded names like "Akash", "Kumar", "Deepak" in conversations
+- ALWAYS use the exact names from get_team_workload response
+- ALWAYS reference specific Jira issues the person is assigned to
+- ALWAYS update the board as people speak about their work
+
+**DYNAMIC TEAM DISCOVERY:**
+- Team members = Object.keys(workload_data) from get_team_workload
+- Current tasks = workload_data[member_name].issues for each member
+- Use this data to drive ALL conversations and questions
+
+**FACILITATION FLOW:**
+1. Greet team and sync Jira data immediately
+2. For each person found in workload data, reference their specific assigned issues
+3. Ask the 3 standup questions about their actual current work
+4. Update board based on responses
+5. Move to next team member with active issues
+
+**AUTOMATIC MEETING START:**
+When a user connects, immediately say: "Good morning team! Let me sync our current sprint data and see who's working on what..." then:
+1. Call sync_jira_board (to get current issues on board)
+2. Call get_team_workload (to get team member assignments)
+3. Announce the team members and their current work
+4. Begin conducting standup for each person with active issues
+
+**TOOL USAGE:**
+- sync_jira_board: Get real team members and current sprint data
+- get_team_workload: Check individual workloads and assignments
+- update_jira_from_standup: Update Jira based on meeting discussions
+- create_standup_summary: Document meeting outcomes
+- get_whiteboard_info: Search existing board content
+- move_task: Move tasks between columns
+- update_whiteboard: Add or update board elements
+
+ALWAYS use tools in real-time during conversations - never just describe what should happen, actually DO IT with tool calls as people speak!
 
 **During Team Member Updates:**
-- **Voice:** "Thanks, Akash. I'm updating the board now..." or "Kumar, I see your task about the testing - let me move that to IN PROGRESS..."
+- **Voice:** "Thanks for that update! Let me update the board now..." or "I see your task about the testing - let me move that to IN PROGRESS..."
 - **Board Action:** 
   - When someone says "I finished X" → IMMEDIATELY use move_task to move it to DONE
   - When someone says "I'm working on Y" → use move_task to move it to IN PROGRESS  
@@ -117,11 +153,11 @@ Akash (Frontend Developer), Deepak (Backend Lead), and Kumar (QA Engineer)
   2. "What are you planning to work on today?"  
   3. "Do you have any blockers or need help with anything?"
 - Never skip the blockers question - it's mandatory for each member
-- Always acknowledge what people say before acting: "Got it, Deepak. Moving that to DONE now..."
+- Always acknowledge what people say before acting: "Got it! Moving that to DONE now..."
 - Be proactive: If someone mentions work, immediately update the board
 - Keep energy high: "Great progress, team!" "That's excellent work!"
 - Guide systematically: Complete all 3 questions for one person before moving to next
-- Summarize after each person: "Thanks Akash, I've updated the board with your work"
+- Summarize after each person: "Thanks for the update, I've updated the board with your work"
 
 **BOARD ORGANIZATION RULES:**
 - Keep TO DO column clean: max 6 tasks, prioritize by urgency
@@ -150,7 +186,6 @@ Use update_whiteboard to create a well-positioned summary sticky note BELOW the 
   - Key accomplishments (items moved to DONE)
   - Today's focus (items in IN PROGRESS)  
   - Blockers identified (if any)
-  - Team: Akash, Deepak, Kumar
   - Sprint progress status
 
 **BOARD ORGANIZATION RULES:**
@@ -181,8 +216,67 @@ ALWAYS use tools in real-time during conversations - never just describe what sh
         },
       ],
     },
-    tools: [{ functionDeclarations: whiteboardTools }],
+    // Initialize tools as empty, will be populated during initialization
+    tools: [],
   });
+
+  // Add initialization effect for Jira tools
+  useEffect(() => {
+    const initializeJira = async () => {
+      try {
+        console.log("🔄 Initializing Jira MCP tools...");
+
+        // Initialize Jira tools first
+        await initializeJiraTools();
+
+        // Try to get real team members
+        const teamMembers = await getTeamMembers();
+        console.log("👥 Real team members from Jira:", teamMembers);
+
+        // Update config with initialized tools
+        setConfig((prevConfig) => ({
+          ...prevConfig,
+          tools: [
+            {
+              functionDeclarations: [
+                ...whiteboardTools,
+                ...jiraWhiteboardTools,
+              ],
+            },
+          ],
+        }));
+
+        console.log("✅ Jira initialization complete!");
+        console.log(
+          "🔧 Total tools available:",
+          [...whiteboardTools, ...jiraWhiteboardTools].length
+        );
+
+        // Log tool names for debugging
+        const allTools = [...whiteboardTools, ...jiraWhiteboardTools];
+        console.log(
+          "🛠️ Tool names:",
+          allTools.map((t) => t.name)
+        );
+      } catch (error) {
+        console.warn(
+          "⚠️ Jira initialization failed, using whiteboard tools only:",
+          error
+        );
+        // Fallback to whiteboard tools only if Jira fails
+        setConfig((prevConfig) => ({
+          ...prevConfig,
+          tools: [
+            {
+              functionDeclarations: whiteboardTools,
+            },
+          ],
+        }));
+      }
+    };
+
+    initializeJira();
+  }, []); // Run once on mount
 
   const [state, setState] = useState<GeminiLiveState>({
     isConnected: false,
@@ -244,7 +338,7 @@ ALWAYS use tools in real-time during conversations - never just describe what sh
       setState((prev) => ({ ...prev, isSpeaking: false }));
     };
 
-    const onToolCall = (toolCall: any) => {
+    const onToolCall = async (toolCall: any) => {
       console.log("🔧 Tool call received:", toolCall);
       console.log("🔍 Tool call details:", JSON.stringify(toolCall, null, 2));
 
@@ -252,7 +346,8 @@ ALWAYS use tools in real-time during conversations - never just describe what sh
         if (toolCall.functionCalls) {
           console.log("✅ Processing functionCalls:", toolCall.functionCalls);
 
-          toolCall.functionCalls.forEach((call: any) => {
+          // Process each function call sequentially
+          for (const call of toolCall.functionCalls) {
             console.log(
               "📞 Processing function call:",
               call.name,
@@ -260,93 +355,88 @@ ALWAYS use tools in real-time during conversations - never just describe what sh
               call.args
             );
 
-            if (
-              call.name === "update_whiteboard" ||
-              call.name === "get_whiteboard_info" ||
-              call.name === "move_task"
-            ) {
+            try {
               console.log("📝 Processing tool call:", call.name, call.args);
 
-              try {
-                // Process the tool call and get response
-                const result = processToolCall(
-                  // We need to get current data - let's pass it via global function
-                  (window as any).getCurrentWhiteboardData?.() || {
-                    elements: [],
+              // Process the tool call and get response
+              const result = await processToolCall(
+                // We need to get current data - let's pass it via global function
+                (window as any).getCurrentWhiteboardData?.() || {
+                  elements: [],
+                },
+                call.name,
+                call.args
+              );
+
+              // Send success response back to Gemini FIRST
+              clientRef.current?.sendToolResponse({
+                functionResponses: [
+                  {
+                    name: call.name,
+                    id: call.id,
+                    response: result.response,
                   },
-                  call.name,
-                  call.args
-                );
+                ],
+              });
 
-                // Send success response back to Gemini FIRST
-                clientRef.current?.sendToolResponse({
-                  functionResponses: [
-                    {
-                      name: call.name,
-                      id: call.id,
-                      response: result.response,
-                    },
-                  ],
-                });
+              console.log(
+                "✅ Sent tool response back to Gemini:",
+                result.response
+              );
 
-                console.log(
-                  "✅ Sent tool response back to Gemini:",
-                  result.response
-                );
+              // If there's new data, update the whiteboard
+              if (result.newData) {
+                console.log("🎨 Updating whiteboard with new data");
 
-                // If there's new data, update the whiteboard
-                if (result.newData) {
-                  console.log("🎨 Updating whiteboard with new data");
-
-                  // For move_task, we need to directly set the new data
-                  if (call.name === "move_task") {
-                    if ((window as any).setWhiteboardData) {
-                      console.log(
-                        "🔄 Directly setting whiteboard data for move operation"
-                      );
-                      (window as any).setWhiteboardData(result.newData);
-                    } else {
-                      console.warn("⚠️ setWhiteboardData not available");
-                    }
+                // For move_task and sync_jira_board, we need to directly set the new data
+                if (
+                  call.name === "move_task" ||
+                  call.name === "sync_jira_board"
+                ) {
+                  if ((window as any).setWhiteboardData) {
+                    console.log(
+                      `🔄 Directly setting whiteboard data for ${call.name} operation`
+                    );
+                    (window as any).setWhiteboardData(result.newData);
                   } else {
-                    // For other tools, use the normal update mechanism
-                    if ((window as any).updateWhiteboardFromGemini) {
-                      console.log(
-                        "🌍 Using global function to update whiteboard"
-                      );
-                      (window as any).updateWhiteboardFromGemini(call.args);
-                    } else if (onWhiteboardUpdate) {
-                      console.log("📞 Using callback to update whiteboard");
-                      onWhiteboardUpdate(result.newData);
-                    } else {
-                      console.warn("⚠️ No whiteboard update handler available");
-                    }
+                    console.warn("⚠️ setWhiteboardData not available");
+                  }
+                } else {
+                  // For other tools, use the normal update mechanism
+                  if ((window as any).updateWhiteboardFromGemini) {
+                    console.log(
+                      "🌍 Using global function to update whiteboard"
+                    );
+                    (window as any).updateWhiteboardFromGemini(call.args);
+                  } else if (onWhiteboardUpdate) {
+                    console.log("📞 Using callback to update whiteboard");
+                    onWhiteboardUpdate(result.newData);
+                  } else {
+                    console.warn("⚠️ No whiteboard update handler available");
                   }
                 }
-              } catch (error) {
-                console.error("❌ Error processing tool call:", error);
-
-                // Send error response back to Gemini
-                clientRef.current?.sendToolResponse({
-                  functionResponses: [
-                    {
-                      name: call.name,
-                      id: call.id,
-                      response: {
-                        success: false,
-                        error:
-                          error instanceof Error
-                            ? error.message
-                            : "Unknown error",
-                      },
-                    },
-                  ],
-                });
               }
-            } else {
-              console.log("❓ Unknown function call:", call.name);
+            } catch (error) {
+              console.error("❌ Error processing tool call:", error);
+
+              // Send error response back to Gemini
+              clientRef.current?.sendToolResponse({
+                functionResponses: [
+                  {
+                    name: call.name,
+                    id: call.id,
+                    response: {
+                      success: false,
+                      error:
+                        error instanceof Error
+                          ? error.message
+                          : "Unknown error",
+                    },
+                  },
+                ],
+              });
             }
-          });
+          }
         } else {
           console.warn("⚠️ No functionCalls in tool call:", toolCall);
         }

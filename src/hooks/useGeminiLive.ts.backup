@@ -1,0 +1,492 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { LiveConnectConfig } from "@google/genai";
+import { GeminiLiveClient, LiveClientOptions } from "../lib/gemini-live-client";
+import { AudioRecorder } from "../lib/audio-recorder";
+import { AudioStreamer } from "../lib/audio-streamer";
+import { GeminiLiveState } from "../types/gemini-live";
+import { WhiteboardData } from "../types/whiteboard";
+import { whiteboardTools, processToolCall } from "../tools/whiteboard-tools";
+
+export interface UseGeminiLiveResult {
+  state: GeminiLiveState;
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  startRecording: () => Promise<void>;
+  stopRecording: () => void;
+  setConfig: (config: LiveConnectConfig) => void;
+  setModel: (model: string) => void;
+  volume: number;
+}
+
+export function useGeminiLive(
+  options: LiveClientOptions,
+  onWhiteboardUpdate?: (data: WhiteboardData) => void
+): UseGeminiLiveResult {
+  const clientRef = useRef<GeminiLiveClient | null>(null);
+  const audioRecorderRef = useRef<AudioRecorder | null>(null);
+  const audioStreamerRef = useRef<AudioStreamer | null>(null);
+
+  const [model, setModel] = useState<string>("models/gemini-2.0-flash-exp");
+  const [config, setConfig] = useState<LiveConnectConfig>({
+    systemInstruction: {
+      parts: [
+        {
+          text: `You are 'Spark', an AI facilitator for daily standup meetings connected to your team's actual Jira project. Your primary goal is to make the standup efficient, engaging, and clear for everyone using REAL project data from Jira. You are friendly, concise, and proactive. You live on the Kanban whiteboard, which syncs with your actual Jira board.
+
+**KANBAN WHITEBOARD LAYOUT:**
+- 📋 **TO DO Column** (x: 60-380): Tasks that need to be started (yellow sticky notes)
+- 🔄 **IN PROGRESS Column** (x: 420-740): Tasks currently being worked on (orange sticky notes)  
+- ✅ **DONE Column** (x: 780-1100): Completed tasks (green sticky notes)
+
+**CURRENT PROJECT:**
+- 🚀 Project: Digital Whiteboard App - Sprint Alpha-2025
+- 🎯 Goal: AI Integration & Kanban Features
+- 🔗 **JIRA INTEGRATION**: Connected to real project data
+
+**YOUR TEAM MEMBERS:**
+Akash (Frontend Developer), Deepak (Backend Lead), and Kumar (QA Engineer)
+
+## Core Directives
+1. **Voice First, Board Second:** Announce your actions with your voice *before* or *as* you perform them on the board. Example: "Okay, Deepak, let's move your payment gateway task to DONE..."
+2. **Real-time is Key:** Update the board *as people speak*. Do not wait for them to finish. This shows you are listening and keeps the meeting dynamic.
+3. **Be a Visual Storyteller:** Use the board to show connections, highlight progress, and create a visual narrative of the team's work.
+4. **Keep it Clean:** The board is your face. Keep it organized and easy to read.
+5. **Stick to the Standup Format:** Guide the team through: What did you do yesterday? What will you do today? Any blockers?
+6. **Use Real Data:** Sync with actual Jira project to get current task assignments and status
+
+**CRITICAL: YOU MUST USE TOOLS FOR ALL TASK OPERATIONS**
+
+**AVAILABLE TOOLS:**
+1. **sync_jira_board** - Sync whiteboard with real Jira project data (use at meeting start)
+2. **get_team_workload** - Get current workload for each team member from Jira
+3. **update_jira_from_standup** - Update Jira tasks based on standup discussions
+4. **create_standup_summary** - Create meeting summary and sync to Jira
+5. **get_whiteboard_info** - Search and find existing tasks by text content
+6. **move_task** - Move existing tasks between columns (use constantly during standups)
+7. **update_whiteboard** - Add new tasks or bulk operations
+
+**JIRA-ENHANCED STANDUP WORKFLOW:**
+
+**Starting the Meeting:**
+- **Voice:** "Good morning, team! Welcome to our daily standup for Sprint Alpha-2025. Let me sync our board with the latest Jira data first..."
+- **Board Action:** 
+  1. FIRST: Use sync_jira_board to get current project status from Jira
+  2. Use get_team_workload to see current assignments for Akash, Deepak, Kumar
+  3. Update whiteboard with real data from Jira
+  4. "Great! Board is synced. Akash, let's start with your updates."
+
+**For Each Team Member (Akash, Deepak, Kumar) - Ask ALL 3 Questions:**
+1. **Question 1:** "What did you work on yesterday?"
+   - Listen and cross-reference with Jira data
+   - Move completed tasks to DONE both on board and in Jira
+   - Acknowledge: "Great work on [JIRA-123]! Moving that to DONE in Jira too."
+
+2. **Question 2:** "What are you planning to work on today?"
+   - Listen and check against current Jira assignments
+   - Update board and Jira with new task status
+   - Acknowledge: "Perfect! I see that's [JIRA-456] in our backlog. Moving it to IN PROGRESS."
+
+3. **Question 3:** "Do you have any blockers or need help with anything?"
+   - ALWAYS ask this question - it's mandatory for each member
+   - If blockers mentioned → update Jira tickets with blocker comments
+   - Note who can help and create action items in Jira
+   - If no blockers → "Excellent, no blockers for you today!"
+
+**Real-Time Jira Integration:**
+- When someone says "I finished [task]" → Use update_jira_from_standup to transition task in Jira
+- When someone mentions working on something → Check Jira assignments and update status
+- When blockers are mentioned → Add comments to Jira tickets with blocker details
+- Keep board and Jira perfectly synchronized
+
+**MEETING END PROTOCOL:**
+After all team members give updates:
+1. **Sync final status:** Use update_jira_from_standup for all discussed changes
+2. **Create comprehensive summary:** Use create_standup_summary with:
+   - What was completed (moved to Done in Jira)
+   - What's in progress (updated in Jira)
+   - New work starting (assigned in Jira)
+   - Blockers identified (documented in Jira)
+   - Action items for follow-up
+3. **Voice summary:** "Great session team! I've updated all our Jira tickets and created a summary."
+
+**MEETING SUMMARY CREATION:**
+Use create_standup_summary to create both whiteboard note and Jira documentation:
+- Position: x=450, y=650 (centered below all columns)
+- Width: 600px to span across the bottom
+- Color: light blue for meeting summaries
+- Content synced to Jira with ticket references
+
+**JIRA-AWARE PHRASES:**
+- "I see you're assigned to [JIRA-123] - is that what you completed?"
+- "Let me check your current Jira assignments..."
+- "I'm updating [JIRA-456] to In Progress in Jira now"
+- "I'll add this blocker as a comment on [JIRA-789]"
+- "Your current Jira workload shows 3 active tickets"
+
+**SMART PROJECT AWARENESS:**
+- Reference actual Jira ticket numbers when discussing tasks
+- Know current sprint status and team assignments
+- Automatically sync board changes back to Jira
+- Provide real project insights: "We have 8 tickets in this sprint, 3 are done"
+
+**MANDATORY MEETING STRUCTURE:**
+For each team member, ask in this exact order:
+1. "What did you work on yesterday?" (sync completed work to Jira)
+2. "What are you planning to work on today?" (update Jira assignments)
+3. "Any blockers or need help with anything?" (document in Jira)
+
+ALWAYS use Jira tools to keep your whiteboard and actual project data synchronized! You're not just a meeting facilitator - you're the bridge between conversation and project management!`,
+        },
+      ],
+    },
+    tools: [{ functionDeclarations: whiteboardTools }],
+  });
+
+  const [state, setState] = useState<GeminiLiveState>({
+    isConnected: false,
+    isRecording: false,
+    isSpeaking: false,
+  });
+
+  const [volume, setVolume] = useState(0);
+  });
+
+  const [state, setState] = useState<GeminiLiveState>({
+    isConnected: false,
+    isRecording: false,
+    isSpeaking: false,
+  });
+
+  const [volume, setVolume] = useState(0);
+
+  const setupEventListeners = useCallback(() => {
+    if (!clientRef.current) return;
+
+    const onOpen = () => {
+      setState((prev) => ({ ...prev, isConnected: true, error: undefined }));
+    };
+
+    const onClose = () => {
+      setState((prev) => ({ ...prev, isConnected: false, isRecording: false }));
+    };
+
+    const onError = (error: ErrorEvent) => {
+      console.error("Gemini Live error:", error);
+      setState((prev) => ({
+        ...prev,
+        error: error.message || "Connection error",
+        isConnected: false,
+        isRecording: false,
+      }));
+    };
+
+    const onAudio = (data: ArrayBuffer) => {
+      setState((prev) => ({ ...prev, isSpeaking: true }));
+      audioStreamerRef.current?.addPCM16(new Uint8Array(data));
+    };
+
+    const onContent = (data: any) => {
+      console.log("Received content:", data);
+      if (data.modelTurn?.parts) {
+        const textParts = data.modelTurn.parts.filter((part: any) => part.text);
+        if (textParts.length > 0) {
+          const responseText = textParts
+            .map((part: any) => part.text)
+            .join(" ");
+          setState((prev) => ({
+            ...prev,
+            response: responseText,
+            isSpeaking: false,
+          }));
+        }
+      }
+    };
+
+    const onInterrupted = () => {
+      audioStreamerRef.current?.stop();
+      setState((prev) => ({ ...prev, isSpeaking: false }));
+    };
+
+    const onTurnComplete = () => {
+      setState((prev) => ({ ...prev, isSpeaking: false }));
+    };
+
+    const onToolCall = (toolCall: any) => {
+      console.log("🔧 Tool call received:", toolCall);
+      console.log("🔍 Tool call details:", JSON.stringify(toolCall, null, 2));
+
+      try {
+        if (toolCall.functionCalls) {
+          console.log("✅ Processing functionCalls:", toolCall.functionCalls);
+
+          toolCall.functionCalls.forEach((call: any) => {
+            console.log(
+              "📞 Processing function call:",
+              call.name,
+              "with args:",
+              call.args
+            );
+
+            if (
+              call.name === "update_whiteboard" ||
+              call.name === "get_whiteboard_info" ||
+              call.name === "move_task"
+            ) {
+              console.log("📝 Processing tool call:", call.name, call.args);
+
+              try {
+                // Process the tool call and get response
+                const result = processToolCall(
+                  // We need to get current data - let's pass it via global function
+                  (window as any).getCurrentWhiteboardData?.() || {
+                    elements: [],
+                  },
+                  call.name,
+                  call.args
+                );
+
+                // Send success response back to Gemini FIRST
+                clientRef.current?.sendToolResponse({
+                  functionResponses: [
+                    {
+                      name: call.name,
+                      id: call.id,
+                      response: result.response,
+                    },
+                  ],
+                });
+
+                console.log(
+                  "✅ Sent tool response back to Gemini:",
+                  result.response
+                );
+
+                // If there's new data, update the whiteboard
+                if (result.newData) {
+                  console.log("🎨 Updating whiteboard with new data");
+
+                  // For move_task, we need to directly set the new data
+                  if (call.name === "move_task") {
+                    if ((window as any).setWhiteboardData) {
+                      console.log(
+                        "🔄 Directly setting whiteboard data for move operation"
+                      );
+                      (window as any).setWhiteboardData(result.newData);
+                    } else {
+                      console.warn("⚠️ setWhiteboardData not available");
+                    }
+                  } else {
+                    // For other tools, use the normal update mechanism
+                    if ((window as any).updateWhiteboardFromGemini) {
+                      console.log(
+                        "🌍 Using global function to update whiteboard"
+                      );
+                      (window as any).updateWhiteboardFromGemini(call.args);
+                    } else if (onWhiteboardUpdate) {
+                      console.log("📞 Using callback to update whiteboard");
+                      onWhiteboardUpdate(result.newData);
+                    } else {
+                      console.warn("⚠️ No whiteboard update handler available");
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error("❌ Error processing tool call:", error);
+
+                // Send error response back to Gemini
+                clientRef.current?.sendToolResponse({
+                  functionResponses: [
+                    {
+                      name: call.name,
+                      id: call.id,
+                      response: {
+                        success: false,
+                        error:
+                          error instanceof Error
+                            ? error.message
+                            : "Unknown error",
+                      },
+                    },
+                  ],
+                });
+              }
+            } else {
+              console.log("❓ Unknown function call:", call.name);
+            }
+          });
+        } else {
+          console.warn("⚠️ No functionCalls in tool call:", toolCall);
+        }
+      } catch (error) {
+        console.error("❌ Error processing tool call:", error);
+
+        // Send error response back to Gemini
+        if (toolCall.functionCalls) {
+          clientRef.current?.sendToolResponse({
+            functionResponses: toolCall.functionCalls.map((call: any) => ({
+              name: call.name,
+              id: call.id,
+              response: {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error",
+              },
+            })),
+          });
+        }
+      }
+    };
+
+    clientRef.current
+      .on("open", onOpen)
+      .on("close", onClose)
+      .on("error", onError)
+      .on("audio", onAudio)
+      .on("content", onContent)
+      .on("interrupted", onInterrupted)
+      .on("turncomplete", onTurnComplete)
+      .on("toolcall", onToolCall);
+  }, []);
+
+  // Initialize/update client when API key changes
+  useEffect(() => {
+    if (options.apiKey && options.apiKey.trim() !== "") {
+      console.log(
+        "Creating client with API key:",
+        options.apiKey.substring(0, 10) + "..."
+      );
+
+      // Disconnect existing client if connected
+      if (clientRef.current && clientRef.current.status === "connected") {
+        clientRef.current.disconnect();
+      }
+
+      // Create new client with updated API key
+      clientRef.current = new GeminiLiveClient(options);
+      setupEventListeners();
+    }
+  }, [options.apiKey, setupEventListeners]);
+
+  // Initialize audio streamer
+  useEffect(() => {
+    const initAudioStreamer = async () => {
+      if (!audioStreamerRef.current) {
+        try {
+          audioStreamerRef.current = await AudioStreamer.create();
+        } catch (error) {
+          console.error("Failed to initialize audio streamer:", error);
+          setState((prev) => ({
+            ...prev,
+            error: "Failed to initialize audio system",
+          }));
+        }
+      }
+    };
+
+    initAudioStreamer();
+  }, []);
+
+  const connect = useCallback(async () => {
+    if (!config || !clientRef.current) {
+      throw new Error("Config has not been set or client not initialized");
+    }
+
+    console.log(
+      "Attempting to connect with API key:",
+      options.apiKey?.substring(0, 10) + "..."
+    );
+    console.log("📋 Tools being passed to Gemini Live:", config.tools);
+    const toolsArray = config.tools as Array<{ functionDeclarations: any[] }>;
+    console.log(
+      "🔧 Number of tools:",
+      toolsArray?.[0]?.functionDeclarations?.length
+    );
+    console.log(
+      "🛠️ Tool names:",
+      toolsArray?.[0]?.functionDeclarations?.map((t: any) => t.name)
+    );
+
+    setState((prev) => ({ ...prev, error: undefined }));
+    clientRef.current.disconnect();
+
+    try {
+      await clientRef.current.connect(model, config);
+      console.log("Connected successfully!");
+      console.log("✅ Connection established with tools enabled");
+    } catch (error) {
+      console.error("Failed to connect:", error);
+      setState((prev) => ({
+        ...prev,
+        error: error instanceof Error ? error.message : "Failed to connect",
+      }));
+    }
+  }, [config, model, options.apiKey]);
+
+  const disconnect = useCallback(() => {
+    if (clientRef.current) {
+      clientRef.current.disconnect();
+    }
+    if (audioRecorderRef.current?.recording) {
+      audioRecorderRef.current.stop();
+    }
+    audioStreamerRef.current?.stop();
+    setState((prev) => ({
+      ...prev,
+      isConnected: false,
+      isRecording: false,
+      isSpeaking: false,
+    }));
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    if (!state.isConnected || !clientRef.current) {
+      throw new Error("Not connected to Gemini Live");
+    }
+
+    try {
+      if (!audioRecorderRef.current) {
+        audioRecorderRef.current = new AudioRecorder(16000);
+
+        audioRecorderRef.current.on("data", (base64Data: string) => {
+          if (clientRef.current) {
+            clientRef.current.sendRealtimeInput([
+              { mimeType: "audio/pcm", data: base64Data },
+            ]);
+          }
+        });
+
+        audioRecorderRef.current.on("volume", (vol: number) => {
+          setVolume(vol);
+        });
+      }
+
+      await audioRecorderRef.current.start();
+      setState((prev) => ({ ...prev, isRecording: true }));
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      setState((prev) => ({
+        ...prev,
+        error:
+          error instanceof Error ? error.message : "Failed to start recording",
+      }));
+    }
+  }, [state.isConnected]);
+
+  const stopRecording = useCallback(() => {
+    if (audioRecorderRef.current?.recording) {
+      audioRecorderRef.current.stop();
+      setState((prev) => ({ ...prev, isRecording: false }));
+      setVolume(0);
+    }
+  }, []);
+
+  return {
+    state,
+    connect,
+    disconnect,
+    startRecording,
+    stopRecording,
+    setConfig,
+    setModel,
+    volume,
+  };
+}

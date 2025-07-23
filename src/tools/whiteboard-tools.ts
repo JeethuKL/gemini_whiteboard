@@ -1,6 +1,12 @@
 import { FunctionDeclaration, Type } from "@google/genai";
 import { WhiteboardData, WhiteboardElement } from "../types/whiteboard";
+import {
+  jiraWhiteboardTools,
+  processJiraToolCall,
+  isMCPAvailable,
+} from "./jira-whiteboard-tools";
 
+// Combine original whiteboard tools with Jira-enhanced tools
 export const whiteboardTools: FunctionDeclaration[] = [
   {
     name: "get_whiteboard_info",
@@ -193,6 +199,7 @@ export const whiteboardTools: FunctionDeclaration[] = [
       required: ["taskText", "targetColumn", "reasoning"],
     },
   },
+  ...jiraWhiteboardTools,
 ];
 
 // Helper function to generate Kanban-aware positions for new elements
@@ -434,12 +441,35 @@ export function determineKanbanColumn(
 }
 
 // Helper function to process any tool call and return appropriate response
-export function processToolCall(
+export async function processToolCall(
   currentData: WhiteboardData,
   toolName: string,
   toolArgs: any
-): { newData?: WhiteboardData; response: any } {
+): Promise<{ newData?: WhiteboardData; response: any }> {
   console.log(`🔧 Processing tool call: ${toolName}`, toolArgs);
+
+  // Check if this is a Jira tool
+  const jiraToolNames = [
+    "sync_jira_board",
+    "update_jira_from_standup",
+    "get_team_workload",
+    "create_standup_summary",
+  ];
+  if (jiraToolNames.includes(toolName)) {
+    // Check if MCP is available
+    if (!isMCPAvailable()) {
+      return {
+        response: {
+          success: false,
+          error:
+            "Jira integration is not available. Please configure MCP Atlassian client first.",
+        },
+      };
+    }
+
+    // Process Jira tool call (async)
+    return await processJiraToolCall(currentData, toolName, toolArgs);
+  }
 
   switch (toolName) {
     case "get_whiteboard_info":
