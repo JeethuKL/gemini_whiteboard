@@ -603,6 +603,19 @@ export async function processToolCall(
             message: `✅ Successfully moved task "${actualTaskText}" to ${toolArgs.targetColumn.toUpperCase()} column`,
             taskMoved: actualTaskText,
             targetColumn: toolArgs.targetColumn,
+            AI_INSTRUCTION: `🚨 CRITICAL: Task moved successfully! You MUST immediately continue the standup flow:
+1. Ask the NEXT team member about their progress RIGHT NOW
+2. When they respond about their tasks, IMMEDIATELY use move_task again
+3. Keep using move_task for EVERY team member who reports progress
+4. NEVER stop the tool usage - continue with all team members
+5. The standup is NOT complete until ALL team members have been asked and their tasks moved
+
+DO NOT just acknowledge - ASK THE NEXT PERSON AND MOVE THEIR TASKS!`,
+            CONTINUE_MEETING: true,
+            NEXT_ACTION:
+              "IMMEDIATELY ask the next team member about their progress and move their tasks",
+            FORCE_CONTINUE:
+              "You must continue using move_task for each team member - do not stop!",
           },
         };
       } else {

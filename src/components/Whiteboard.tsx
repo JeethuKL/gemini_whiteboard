@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { WhiteboardData, WhiteboardElement } from '../types/whiteboard';
 import StickyNote from './StickyNote';
 import FlowNode from './FlowNode';
@@ -16,44 +16,9 @@ const initialData: WhiteboardData = {
   elements: []
 };
 
-// Welcome Screen Component
-const WelcomeScreen: React.FC = () => {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
-      <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            🚀 Spark AI Facilitator
-          </h1>
-          <p className="text-lg text-gray-600">
-            Your intelligent meeting assistant
-          </p>
-        </div>
-        
-        <div className="mb-6">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-100 rounded-full">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-            <span className="text-blue-800 font-medium">Connecting to Jira...</span>
-          </div>
-        </div>
-        
-        <div className="text-sm text-gray-500 space-y-1">
-          <p>✨ Fetching your team's current sprint data</p>
-          <p>👥 Loading team member assignments</p>
-          <p>📋 Preparing your Kanban board</p>
-        </div>
-        
-        <div className="mt-6 text-xs text-gray-400">
-          Connect to Gemini Live to begin your meeting
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function Whiteboard() {
   const [data, setData] = useState<WhiteboardData>(initialData);
-  const [hasJiraData, setHasJiraData] = useState(false);
+  const [hasJiraData, setHasJiraData] = useState(true); // Set to true to show whiteboard immediately
   const [draggedElement, setDraggedElement] = useState<string | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -74,59 +39,69 @@ export default function Whiteboard() {
     }
   };
 
-  // Set up global function for Gemini tool calls
+  // Use refs to maintain stable function references
+  const dataRef = useRef(data);
+  const setDataRef = useRef(setData);
+  
+  // Update refs when data or setData changes
   useEffect(() => {
-    (window as any).updateWhiteboardFromGemini = (toolCallArgs: any) => {
-      console.log("🎨 Updating whiteboard from Gemini:", toolCallArgs);
-      
-      // Use setData with function to get current state
-      setData(currentData => {
-        const newData = processWhiteboardToolCall(currentData, toolCallArgs);
-        console.log("📋 Updated whiteboard data:", newData);
-        
-        // Check if this update contains Jira data
-        const hasJiraElements = newData.elements.some(el => 
-          el.id.startsWith('jira-') || el.id === 'sprint-header'
-        );
-        
-        if (hasJiraElements) {
-          console.log("🎯 Jira data detected in update! Switching to Kanban view");
-          handleJiraDataLoaded();
-        }
-        
-        return newData;
-      });
-    };
+    dataRef.current = data;
+    setDataRef.current = setData;
+  }, [data, setData]);
 
-    // Set up global function to get current whiteboard data
-    (window as any).getCurrentWhiteboardData = () => {
-      console.log("📊 Getting current whiteboard data for tool call");
-      return data;
-    };
-
-    // Set up global function to directly set whiteboard data (for move operations)
-    (window as any).setWhiteboardData = (newData: WhiteboardData) => {
-      console.log("🔄 Directly setting whiteboard data:", newData);
-      setData(newData);
-      
-      // Check if this is Jira data being loaded (contains sprint header or jira elements)
-      const hasJiraElements = newData.elements.some(el => 
-        el.id.startsWith('jira-') || el.id === 'sprint-header'
-      );
-      
-      if (hasJiraElements) {
-        console.log("🎯 Jira data detected! Switching to Kanban view");
+  // Auto-detect when Jira data is loaded based on elements
+  useEffect(() => {
+    if (!hasJiraData && data.elements.length > 0) {
+      // Check if we have any sticky notes (Jira tasks)
+      const hasStickyNotes = data.elements.some(el => el.type === 'sticky');
+      if (hasStickyNotes) {
         handleJiraDataLoaded();
       }
+    }
+  }, [data.elements, hasJiraData]);
+
+  // Set up global functions for external access (only once)
+  useEffect(() => {
+    // Function to get current whiteboard data
+    (window as any).getCurrentWhiteboardData = () => {
+      console.log('getCurrentWhiteboardData called, returning:', dataRef.current);
+      return dataRef.current;
     };
+
+    // Function to set whiteboard data
+    (window as any).setWhiteboardData = (newData: WhiteboardData) => {
+      console.log('setWhiteboardData called with:', newData);
+      setDataRef.current(newData);
+    };
+
+    // Function to update whiteboard from Gemini (legacy support)
+    (window as any).updateWhiteboardFromGemini = (updates: any) => {
+      console.log('updateWhiteboardFromGemini called with:', updates);
+      if (updates && updates.elements) {
+        const currentData = dataRef.current;
+        setDataRef.current({
+          ...currentData,
+          elements: updates.elements
+        });
+        
+        // Trigger Jira data loaded when elements are added
+        if (updates.elements.length > 0) {
+          handleJiraDataLoaded();
+        }
+      }
+    };
+
+    // Function to handle Jira data loaded (expose globally)
+    (window as any).handleJiraDataLoaded = handleJiraDataLoaded;
 
     // Cleanup
     return () => {
       delete (window as any).updateWhiteboardFromGemini;
       delete (window as any).getCurrentWhiteboardData;
       delete (window as any).setWhiteboardData;
+      delete (window as any).handleJiraDataLoaded;
     };
-  }, [data]); // Include data dependency so getCurrentWhiteboardData returns current state
+  }, []); // No dependencies - functions are stable and use refs for current values
 
   const updateElement = (id: string, updates: Partial<WhiteboardElement>) => {
     setData(prev => ({
@@ -142,31 +117,31 @@ export default function Whiteboard() {
     setData(prev => {
       const newElements = [...prev.elements];
       
-      // Separate elements by column and type
+      // Separate elements by column and type (updated boundaries)
       const todoElements = newElements.filter(el => 
-        el.type === 'sticky' && el.x >= 60 && el.x <= 380
+        el.type === 'sticky' && el.x >= 40 && el.x <= 380
       ).sort((a, b) => a.y - b.y);
       
       const inProgressElements = newElements.filter(el => 
-        el.type === 'sticky' && el.x >= 420 && el.x <= 740
+        el.type === 'sticky' && el.x >= 420 && el.x <= 760
       ).sort((a, b) => a.y - b.y);
       
       const doneElements = newElements.filter(el => 
-        el.type === 'sticky' && el.x >= 780 && el.x <= 1100
+        el.type === 'sticky' && el.x >= 800 && el.x <= 1140
       ).sort((a, b) => a.y - b.y);
       
       const otherElements = newElements.filter(el => 
-        el.type !== 'sticky' || (el.x < 60 || (el.x > 380 && el.x < 420) || (el.x > 740 && el.x < 780) || el.x > 1100)
+        el.type !== 'sticky' || (el.x < 40 || (el.x > 380 && el.x < 420) || (el.x > 760 && el.x < 800) || el.x > 1140)
       );
       
       // Reorganize each column with proper spacing
-      let startY = 180;
-      const spacing = 90;
+      let startY = 200; // Updated to account for new header height
+      const spacing = 100; // Increased spacing for better visual appeal
       
       // Reorganize TODO column
       todoElements.forEach((el, index) => {
         if (el.type === 'sticky') {
-          el.x = 100;
+          el.x = 100; // Centered in new column
           el.y = startY + (index * spacing);
           el.color = 'yellow';
         }
@@ -175,7 +150,7 @@ export default function Whiteboard() {
       // Reorganize IN PROGRESS column
       inProgressElements.forEach((el, index) => {
         if (el.type === 'sticky') {
-          el.x = 460;
+          el.x = 480; // Centered in new column
           el.y = startY + (index * spacing);
           el.color = 'orange';
         }
@@ -184,7 +159,7 @@ export default function Whiteboard() {
       // Reorganize DONE column
       doneElements.forEach((el, index) => {
         if (el.type === 'sticky') {
-          el.x = 820;
+          el.x = 860; // Centered in new column
           el.y = startY + (index * spacing);
           el.color = 'green';
         }
@@ -202,46 +177,46 @@ export default function Whiteboard() {
     
     // Helper function to get next available Y position in a column
     const getNextYPosition = (columnX: number) => {
-      // Define column boundaries more precisely
+      // Define column boundaries more precisely (updated for new layout)
       let columnStart, columnEnd;
-      if (columnX <= 150) { // TODO column
-        columnStart = 60;
+      if (columnX <= 210) { // TODO column
+        columnStart = 40;
         columnEnd = 380;
-      } else if (columnX >= 400 && columnX <= 500) { // IN PROGRESS column
+      } else if (columnX >= 420 && columnX <= 580) { // IN PROGRESS column
         columnStart = 420;
-        columnEnd = 740;
+        columnEnd = 760;
       } else { // DONE column
-        columnStart = 780;
-        columnEnd = 1100;
+        columnStart = 800;
+        columnEnd = 1140;
       }
       
       // Get all elements in this column, sorted by Y position
       const elementsInColumn = data.elements.filter(el => 
-        el.x >= columnStart && el.x <= columnEnd && el.y >= 140 && el.type === 'sticky'
+        el.x >= columnStart && el.x <= columnEnd && el.y >= 120 && el.type === 'sticky'
       ).sort((a, b) => a.y - b.y);
       
       // Start from base position (after column header)
-      let nextY = 180;
+      let nextY = 200; // Updated for new header height
       
       // Find the next available position
       for (const element of elementsInColumn) {
         if (element.y >= nextY) {
-          nextY = Math.max(nextY, element.y + 90); // 90px spacing between cards
+          nextY = Math.max(nextY, element.y + 100); // Increased spacing
         }
       }
       
       return nextY;
     };
     
-    // Determine Kanban column based on type or default to TODO
+    // Determine Kanban column based on type or default to TODO (updated positions)
     const getKanbanPosition = (status: 'todo' | 'inprogress' | 'done' = 'todo') => {
       switch (status) {
         case 'todo':
-          return { x: 100, color: 'yellow' };
+          return { x: 100, color: 'yellow' }; // Centered in TODO column
         case 'inprogress':
-          return { x: 460, color: 'orange' };
+          return { x: 480, color: 'orange' }; // Centered in IN PROGRESS column
         case 'done':
-          return { x: 820, color: 'green' };
+          return { x: 860, color: 'green' }; // Centered in DONE column
         default:
           return { x: 100, color: 'yellow' };
       }
@@ -299,21 +274,21 @@ export default function Whiteboard() {
     console.log("=====================================");
     setTimeout(() => {
       setData(currentData => {
-        // Organize elements by column for display
+        // Organize elements by column for display (updated boundaries)
         const todoItems = currentData.elements.filter(el => 
-          el.type === 'sticky' && el.x >= 60 && el.x <= 380
+          el.type === 'sticky' && el.x >= 40 && el.x <= 380
         ).sort((a, b) => a.y - b.y);
         
         const inProgressItems = currentData.elements.filter(el => 
-          el.type === 'sticky' && el.x >= 420 && el.x <= 740
+          el.type === 'sticky' && el.x >= 420 && el.x <= 760
         ).sort((a, b) => a.y - b.y);
         
         const doneItems = currentData.elements.filter(el => 
-          el.type === 'sticky' && el.x >= 780 && el.x <= 1100
+          el.type === 'sticky' && el.x >= 800 && el.x <= 1140
         ).sort((a, b) => a.y - b.y);
         
         const otherItems = currentData.elements.filter(el => 
-          el.type !== 'sticky' || (el.x < 60 || (el.x > 380 && el.x < 420) || (el.x > 740 && el.x < 780) || el.x > 1100)
+          el.type !== 'sticky' || (el.x < 40 || (el.x > 380 && el.x < 420) || (el.x > 760 && el.x < 800) || el.x > 1140)
         );
         
         console.log("🟡 TODO Column:", todoItems.map(item => ({ id: item.id, text: item.type === 'sticky' ? item.text : '', x: item.x, y: item.y })));
@@ -444,13 +419,11 @@ export default function Whiteboard() {
   };
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+    <div className="h-screen w-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
       <Toolbar onAddElement={addElement} />
       <GeminiLiveControls />
       
-      {/* Show Welcome Screen until Jira data is loaded */}
-      {!hasJiraData && <WelcomeScreen />}
-      
+      {/* Whiteboard is always visible now */}
       <div
         ref={containerRef}
         id="whiteboard-container"
@@ -460,8 +433,8 @@ export default function Whiteboard() {
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
         style={{
-          opacity: hasJiraData ? 1 : 0.3,
-          pointerEvents: hasJiraData ? 'auto' : 'none'
+          opacity: 1, // Always fully visible
+          pointerEvents: 'auto' // Always interactive
         }}
       >
         <div
@@ -471,71 +444,92 @@ export default function Whiteboard() {
             transformOrigin: '0 0'
           }}
         >
-          {/* Grid background */}
+          {/* Enhanced Grid background with subtle pattern */}
           <div
             className="absolute inset-0"
             style={{
               backgroundImage: `
-                radial-gradient(circle, #e5e7eb 1px, transparent 1px)
+                radial-gradient(circle at 1px 1px, rgba(99, 102, 241, 0.15) 1px, transparent 0)
               `,
-              backgroundSize: '20px 20px',
+              backgroundSize: '24px 24px',
               backgroundPosition: '0 0'
             }}
           />
           
-          {/* Kanban Columns Background */}
+          {/* Kanban Columns Background - Enhanced Design */}
           <div className="absolute inset-0">
-            {/* To Do Column */}
+            {/* To Do Column - Enhanced */}
             <div 
-              className="absolute bg-yellow-50/80 border-2 border-dashed border-yellow-300 rounded-xl shadow-sm backdrop-blur-sm"
+              className="absolute bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl"
               style={{
-                left: '60px',
-                top: '140px', 
-                width: '320px',
-                height: '650px'
+                left: '40px',
+                top: '120px', 
+                width: '340px',
+                height: '680px',
+                boxShadow: '0 10px 40px rgba(245, 158, 11, 0.1)'
               }}
             >
-              <div className="absolute top-4 left-4 text-yellow-700 text-lg font-bold flex items-center gap-2">
-                📋 TO DO
-                <span className="text-xs bg-yellow-200 px-2 py-1 rounded-full">
-                  {data.elements.filter(el => el.x >= 60 && el.x <= 380 && el.y >= 140).length}
-                </span>
+              <div className="absolute top-6 left-6 right-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse"></div>
+                    <h2 className="text-amber-800 text-xl font-bold tracking-wide">📋 TO DO</h2>
+                  </div>
+                  <span className="text-xs bg-amber-200 text-amber-800 px-3 py-1.5 rounded-full font-semibold shadow-sm">
+                    {data.elements.filter(el => el.x >= 40 && el.x <= 380 && el.y >= 120).length}
+                  </span>
+                </div>
+                <div className="h-px bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200"></div>
               </div>
             </div>
             
-            {/* In Progress Column */}
+            {/* In Progress Column - Enhanced */}
             <div 
-              className="absolute bg-orange-50/80 border-2 border-dashed border-orange-300 rounded-xl shadow-sm backdrop-blur-sm"
+              className="absolute bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl"
               style={{
                 left: '420px',
-                top: '140px',
-                width: '320px', 
-                height: '650px'
+                top: '120px',
+                width: '340px', 
+                height: '680px',
+                boxShadow: '0 10px 40px rgba(59, 130, 246, 0.1)'
               }}
             >
-              <div className="absolute top-4 left-4 text-orange-700 text-lg font-bold flex items-center gap-2">
-                🔄 IN PROGRESS
-                <span className="text-xs bg-orange-200 px-2 py-1 rounded-full">
-                  {data.elements.filter(el => el.x >= 420 && el.x <= 740 && el.y >= 140).length}
-                </span>
+              <div className="absolute top-6 left-6 right-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+                    <h2 className="text-blue-800 text-xl font-bold tracking-wide">🔄 IN PROGRESS</h2>
+                  </div>
+                  <span className="text-xs bg-blue-200 text-blue-800 px-3 py-1.5 rounded-full font-semibold shadow-sm">
+                    {data.elements.filter(el => el.x >= 420 && el.x <= 760 && el.y >= 120).length}
+                  </span>
+                </div>
+                <div className="h-px bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200"></div>
               </div>
             </div>
             
-            {/* Done Column */}
+            {/* Done Column - Enhanced */}
             <div 
-              className="absolute bg-green-50/80 border-2 border-dashed border-green-300 rounded-xl shadow-sm backdrop-blur-sm"
+              className="absolute bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-2xl shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl"
               style={{
-                left: '780px',
-                top: '140px',
-                width: '320px',
-                height: '650px'
+                left: '800px',
+                top: '120px',
+                width: '340px',
+                height: '680px',
+                boxShadow: '0 10px 40px rgba(16, 185, 129, 0.1)'
               }}
             >
-              <div className="absolute top-4 left-4 text-green-700 text-lg font-bold flex items-center gap-2">
-                ✅ DONE
-                <span className="text-xs bg-green-200 px-2 py-1 rounded-full">
-                  {data.elements.filter(el => el.x >= 780 && el.x <= 1100 && el.y >= 140).length}
-                </span>
+              <div className="absolute top-6 left-6 right-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
+                    <h2 className="text-emerald-800 text-xl font-bold tracking-wide">✅ DONE</h2>
+                  </div>
+                  <span className="text-xs bg-emerald-200 text-emerald-800 px-3 py-1.5 rounded-full font-semibold shadow-sm">
+                    {data.elements.filter(el => el.x >= 800 && el.x <= 1140 && el.y >= 120).length}
+                  </span>
+                </div>
+                <div className="h-px bg-gradient-to-r from-emerald-200 via-emerald-300 to-emerald-200"></div>
               </div>
             </div>
           </div>
@@ -548,28 +542,50 @@ export default function Whiteboard() {
         </div>
       </div>
 
-      {/* Zoom controls */}
-      <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-lg p-2 flex flex-col gap-2">
-        <button
-          onClick={reorganizeElements}
-          className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-xs"
-          title="Reorganize Kanban columns"
-        >
-          📋 Organize
-        </button>
-        <button
-          onClick={() => setZoom(Math.min(zoom + 0.25, 3))}
-          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          +
-        </button>
-        <span className="text-sm font-medium px-2">{Math.round(zoom * 100)}%</span>
-        <button
-          onClick={() => setZoom(Math.max(zoom - 0.25, 0.25))}
-          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          -
-        </button>
+      {/* Enhanced Zoom and Control Panel */}
+      <div className="fixed bottom-6 left-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl p-4 flex flex-col gap-3 border border-white/20">
+        <div className="text-center">
+          <div className="text-xs text-gray-500 font-medium mb-2">CONTROLS</div>
+          <button
+            onClick={reorganizeElements}
+            className="w-full px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 mb-2"
+            title="Reorganize Kanban columns"
+          >
+            📋 Auto Organize
+          </button>
+          
+          {/* Test button to manually hide welcome screen - removed since welcome screen is gone */}
+          {false && (
+            <button
+              onClick={handleJiraDataLoaded}
+              className="w-full px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+              title="Simulate Jira data loaded"
+            >
+              🎯 Test: Hide Welcome
+            </button>
+          )}
+        </div>
+        
+        <div className="h-px bg-gray-200"></div>
+        
+        <div className="text-center">
+          <div className="text-xs text-gray-500 font-medium mb-3">ZOOM</div>
+          <button
+            onClick={() => setZoom(Math.min(zoom + 0.25, 3))}
+            className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 text-lg font-bold shadow-md hover:shadow-lg mb-2"
+          >
+            +
+          </button>
+          <div className="text-sm font-bold text-gray-700 py-2 px-3 bg-gray-100 rounded-lg">
+            {Math.round(zoom * 100)}%
+          </div>
+          <button
+            onClick={() => setZoom(Math.max(zoom - 0.25, 0.25))}
+            className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 text-lg font-bold shadow-md hover:shadow-lg mt-2"
+          >
+            −
+          </button>
+        </div>
       </div>
 
       <JsonEditor data={data} onDataChange={setData} />

@@ -173,12 +173,27 @@ When a user connects, immediately say: "Good morning team! Let me sync our curre
 
 ALWAYS use tools in real-time during conversations - never just describe what should happen, actually DO IT with tool calls as people speak!
 
+**🚨 MANDATORY TOOL USAGE RULE:**
+- EVERY time someone mentions progress, you MUST use move_task
+- NEVER just say "I'll move that" - ACTUALLY call the move_task tool
+- Continue using tools for ALL team members throughout the entire meeting
+- Tool calls are REQUIRED, not optional - the board must be updated in real-time
+- If you stop using tools, the meeting fails - keep them active for everyone
+
 **During Team Member Updates:**
 - **Voice:** "Thanks for that update! Let me update the board now..." or "I see your task about the testing - let me move that to IN PROGRESS..."
 - **Board Action:** 
   - When someone says "I finished X" → IMMEDIATELY use move_task with SPECIFIC text from their task
   - When someone says "I'm working on Y" → use move_task with SPECIFIC text to move it to IN PROGRESS  
   - When someone mentions a new task → use update_whiteboard to add it to TODO
+- **CRITICAL: NEVER STOP USING TOOLS** - Continue moving tasks for EVERY team member as they speak
+
+**MANDATORY REAL-TIME BOARD UPDATES:**
+- Update the board for EVERY team member who speaks
+- If someone mentions progress, IMMEDIATELY move their task
+- ALWAYS use tools after each person's update - NEVER just acknowledge verbally
+- Continue the standup rhythm: Ask → Listen → Update Board → Next Person
+- Use move_task for EACH team member's reported progress
 
 **CRITICAL: TASK MOVEMENT BEST PRACTICES:**
 - Use SPECIFIC and UNIQUE text when moving tasks (minimum 3-4 distinctive words)
@@ -214,6 +229,28 @@ ALWAYS use tools in real-time during conversations - never just describe what sh
 - Keep energy high: "Great progress, team!" "That's excellent work!"
 - Guide systematically: Complete all 3 questions for one person before moving to next
 - Summarize after each person: "Thanks for the update, I've updated the board with your work"
+
+**🚨 CRITICAL: CONTINUOUS TOOL USAGE PROTOCOL**
+- Use tools for EVERY team member, not just the first one
+- After moving one task, IMMEDIATELY continue with the next team member
+- NEVER stop using move_task after the first successful move
+- Each team member should have their tasks moved based on their updates
+- Pattern: Ask Question → Get Response → Move Task → Continue to Next Person
+- Do NOT get stuck after one successful tool call - keep the standup flowing
+- MANDATORY: Continue tool usage until ALL team members are complete
+
+**🚨 ABSOLUTE REQUIREMENT: NEVER STOP USING TOOLS**
+- If you just moved a task, immediately ask the next person
+- Use move_task for EVERY team member who reports progress
+- Do NOT just say "I'll update the board" - actually USE THE TOOLS
+- Continue the standup rhythm for ALL team members without stopping
+- Tool usage is MANDATORY, not optional - keep moving tasks in real-time
+
+**EXAMPLE MEETING FLOW:**
+1. "Akshay, how's your Credit Card Payment task?" → Move to DONE
+2. "Perfect! Deepak, what about your Payment Logging work?" → Move accordingly  
+3. "Great! Gnanasambandam, tell me about Payment Confirmation?" → Move accordingly
+4. Continue for ALL team members with active tasks
 
 **BOARD ORGANIZATION RULES:**
 - Keep TO DO column clean: max 6 tasks, prioritize by urgency
@@ -445,6 +482,15 @@ When a user starts speaking:
 - Stay within the three standup questions for each real team member
 - Reference ONLY the specific issue keys and summaries from individualWorkloads data
 
+🔄 **CONTINUOUS STANDUP FLOW REQUIREMENTS:**
+- Go through ALL team members systematically: ${teamMembers
+        .map((m) => m.name)
+        .join(" → ")}
+- For EACH team member: Ask about their work → Move their tasks → Continue to next
+- NEVER stop after moving just one task - continue the full meeting
+- Use move_task for EVERY team member who reports progress
+- Keep the standup moving: each person gets their board updated
+
 You are Spark, an AI facilitator for real-time standup meetings. You have access to live Jira data and should conduct data-driven conversations.
 
 ## MEETING FACILITATION PROTOCOL
@@ -452,10 +498,12 @@ You are Spark, an AI facilitator for real-time standup meetings. You have access
 1. **Greet the REAL team** - Use ONLY the actual names from the roster above:
    ${teamMembers.map((m) => `- ${m.name}`).join("\n   ")}
 
-2. **For each team member present:**
+2. **For each team member present (ALL ${teamMembers.length} members):**
    - Ask about progress on their specific current tasks listed above
    - Inquire about any blockers or challenges
    - Note any updates to task status
+   - **IMMEDIATELY move their tasks based on their updates**
+   - **Continue to the next team member without stopping**
 
 3. **Facilitate collaboration:**
    - Identify dependencies between team members
@@ -484,6 +532,8 @@ You are Spark, an AI facilitator for real-time standup meetings. You have access
 - Never ignore tool responses or use outdated information
 - ONLY reference task data from individualWorkloads.currentWork arrays
 - Use exact format from tool response: "SCRUM-X: Summary (Status)"
+- **CRITICAL: After ANY successful tool call, continue with the next team member**
+- **NEVER stop the meeting flow after one tool call - keep asking and updating**
 
 🚨 IMMEDIATE RESPONSE PROTOCOL:
 When you receive a tool response with team member data:
@@ -493,6 +543,8 @@ When you receive a tool response with team member data:
 4. Reference the specific tasks/issues returned in the response
 5. Follow any AI_INSTRUCTION provided in the tool response
 6. NEVER add fictional task numbers or generic task descriptions
+7. **If you just moved a task, immediately ask the next team member about their work**
+8. **Continue the standup rhythm: each person gets their tasks moved**
 
 EXAMPLE: After calling get_team_workload and receiving response with REAL_TEAM_MEMBERS: ["Deepak V", "gnanasambandam.sr2022csbs", "LA Jeeththenthar CSE"] and individualWorkloads showing currentWork arrays, immediately say:
 "Perfect! I can see our active team members are Deepak V, gnanasambandam.sr2022csbs, and LA Jeeththenthar CSE. Deepak V, I see you're working on [exact task from currentWork array]. How is that progressing?"
@@ -712,6 +764,41 @@ You must immediately respond by saying: "Perfect! I can see our team members fro
                     );
                   }
                 }, 300); // Give tool response time to be processed first
+              }
+
+              // CRITICAL: Force continued tool usage after successful move_task
+              if (call.name === "move_task" && result.response.success) {
+                console.log(
+                  "🎯 Encouraging continued tool usage after successful move"
+                );
+
+                setTimeout(() => {
+                  try {
+                    clientRef.current?.send(
+                      [
+                        {
+                          text: `EXCELLENT! Task moved successfully. Now IMMEDIATELY continue the standup:
+
+1. Ask the NEXT team member about their progress
+2. When they respond, IMMEDIATELY use move_task to update their tasks
+3. Continue this pattern for ALL team members
+4. NEVER stop using tools - keep the board updated in real-time
+5. Ask each person about their tasks and move them accordingly
+
+Continue with the next team member NOW! Keep the standup flowing with real-time board updates.`,
+                        },
+                      ],
+                      true
+                    );
+
+                    console.log("🚀 Sent continuation encouragement to Gemini");
+                  } catch (error) {
+                    console.error(
+                      "❌ Error sending continuation encouragement:",
+                      error
+                    );
+                  }
+                }, 200);
               }
 
               // If there's new data, update the whiteboard

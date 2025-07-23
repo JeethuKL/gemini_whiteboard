@@ -102,6 +102,12 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
     
     if (success) {
       console.log("🔗 Reconnecting with updated instructions...");
+      
+      // Trigger the whiteboard to hide the welcome screen
+      if (typeof (window as any).handleJiraDataLoaded === 'function') {
+        (window as any).handleJiraDataLoaded();
+      }
+      
       try {
         await connect();
         alert('✅ Jira data refreshed and reconnected! Gemini now has your latest team information. Try asking: "Start our standup meeting"');
