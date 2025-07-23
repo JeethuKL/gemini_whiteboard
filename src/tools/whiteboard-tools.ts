@@ -167,15 +167,27 @@ export const whiteboardTools: FunctionDeclaration[] = [
     name: "move_task",
     description: `Move an existing task between Kanban columns by searching for it by text content. 
     
-    **USAGE:**
-    - "Move authentication task to IN PROGRESS" 
-    - "Mark API integration as DONE"
-    - "Move the mobile design task to TODO"
+    **IMPORTANT USAGE GUIDELINES:**
+    - Use SPECIFIC and UNIQUE text from the task you want to move
+    - Use at least 3-4 distinctive words from the task text
+    - If moving tasks for different team members, use their specific task text
+    - Avoid generic words that might match multiple tasks
     
-    This tool automatically:
-    1. Finds the task by searching text content
-    2. Moves it to the target column with correct position and color
-    3. Handles multiple matches by moving the first found task
+    **GOOD EXAMPLES:**
+    - "Move user authentication system to IN PROGRESS" (specific task name)
+    - "Mark payment gateway integration as DONE" (unique business logic)
+    - "Move mobile responsive design task to TODO" (specific feature)
+    
+    **AVOID:**
+    - "Move API task" (too generic, might match multiple API tasks)
+    - "Move frontend" (too broad)
+    - "Move testing" (many tasks might contain "testing")
+    
+    **BEHAVIOR:**
+    - Finds the BEST matching task using intelligent text scoring
+    - Prioritizes exact matches and tasks not already in target column
+    - Will skip moving if task is already in the target column
+    - Automatically positions task correctly in the target column
     
     Use this instead of update_whiteboard when you want to move existing tasks.`,
     parameters: {
@@ -184,7 +196,7 @@ export const whiteboardTools: FunctionDeclaration[] = [
         taskText: {
           type: Type.STRING,
           description:
-            "Text content to search for in existing tasks (partial match is fine)",
+            "Specific and unique text content from the task you want to move (use 3-4 distinctive words minimum for accuracy)",
         },
         targetColumn: {
           type: Type.STRING,
@@ -316,65 +328,131 @@ export function moveTaskByText(
     reasoning
   );
 
-  // Log all current tasks for debugging
+  // Helper function to determine current column of a task
+  const getCurrentColumn = (task: any): string => {
+    if (task.x >= 60 && task.x <= 380) return "todo";
+    else if (task.x >= 420 && task.x <= 740) return "inprogress";
+    else if (task.x >= 780 && task.x <= 1100) return "done";
+    return "other";
+  };
+
+  // Get all sticky tasks (excluding summary notes which are below y=650)
   const allStickyTasks = currentData.elements.filter(
-    (el) => el.type === "sticky"
+    (el) => el.type === "sticky" && el.y < 650
   );
+
   console.log("📋 All available sticky tasks:");
   allStickyTasks.forEach((task) => {
     const stickyTask = task as any;
-    let currentColumn = "other";
-    if (task.x >= 60 && task.x <= 380) currentColumn = "todo";
-    else if (task.x >= 420 && task.x <= 740) currentColumn = "inprogress";
-    else if (task.x >= 780 && task.x <= 1100) currentColumn = "done";
-
+    const currentColumn = getCurrentColumn(task);
     console.log(`  - ${task.id}: "${stickyTask.text}" (in ${currentColumn})`);
   });
 
-  // Find task by text content with flexible matching
-  const searchTextLower = taskText.toLowerCase();
-  const possibleMatches = allStickyTasks.filter((el) => {
-    const taskTextLower = (el as any).text?.toLowerCase() || "";
-    return (
-      taskTextLower.includes(searchTextLower) ||
-      searchTextLower.includes(taskTextLower) ||
-      // Try matching individual words
-      taskTextLower
-        .split(" ")
-        .some((word: string) => searchTextLower.includes(word)) ||
-      searchTextLower.split(" ").some((word) => taskTextLower.includes(word))
-    );
-  });
+  // Enhanced text matching with priority scoring
+  const searchTextLower = taskText.toLowerCase().trim();
+  const searchWords = searchTextLower
+    .split(/\s+/)
+    .filter((word) => word.length > 2); // Only words > 2 chars
+
+  const candidatesWithScores = allStickyTasks
+    .map((el) => {
+      const taskTextLower = (el as any).text?.toLowerCase().trim() || "";
+      const taskWords = taskTextLower.split(/\s+/);
+
+      let score = 0;
+
+      // Exact match gets highest score
+      if (taskTextLower === searchTextLower) {
+        score = 100;
+      }
+      // Check if search text is contained in task text
+      else if (taskTextLower.includes(searchTextLower)) {
+        score = 80;
+      }
+      // Check if task text is contained in search text
+      else if (searchTextLower.includes(taskTextLower)) {
+        score = 70;
+      }
+      // Word-based matching
+      else {
+        const matchingWords = searchWords.filter((searchWord) =>
+          taskWords.some(
+            (taskWord: string) =>
+              taskWord.includes(searchWord) || searchWord.includes(taskWord)
+          )
+        );
+
+        if (matchingWords.length > 0) {
+          // Score based on percentage of matching words
+          score =
+            (matchingWords.length /
+              Math.max(searchWords.length, taskWords.length)) *
+            60;
+        }
+      }
+
+      // Bonus for tasks that aren't already in the target column
+      const currentColumn = getCurrentColumn(el);
+      if (currentColumn !== targetColumn) {
+        score += 10;
+      }
+
+      return { task: el, score, currentColumn };
+    })
+    .filter((candidate) => candidate.score > 20); // Only keep candidates with decent scores
+
+  // Sort by score (highest first)
+  candidatesWithScores.sort((a, b) => b.score - a.score);
 
   console.log(
-    `🔍 Found ${possibleMatches.length} possible matches:`,
-    possibleMatches.map((t) => (t as any).text)
+    `🔍 Found ${candidatesWithScores.length} ranked matches:`,
+    candidatesWithScores.map(
+      (c) =>
+        `"${(c.task as any).text}" (score: ${c.score}, in: ${c.currentColumn})`
+    )
   );
 
-  const taskToMove = possibleMatches[0]; // Take the first match
-
-  if (!taskToMove) {
-    console.warn("⚠️ Task not found with text:", taskText);
+  if (candidatesWithScores.length === 0) {
+    console.warn("⚠️ No suitable task found with text:", taskText);
     console.warn(
       "💡 Available task texts:",
-      allStickyTasks.map((t) => (t as any).text)
+      allStickyTasks.map((t) => `"${(t as any).text}"`)
     );
     return currentData;
   }
 
+  // Get the best match
+  const bestCandidate = candidatesWithScores[0];
+  const taskToMove = bestCandidate.task;
+
+  // Check if task is already in target column
+  if (bestCandidate.currentColumn === targetColumn) {
+    console.log(
+      `ℹ️ Task "${
+        (taskToMove as any).text
+      }" is already in ${targetColumn} column`
+    );
+    return currentData; // No need to move
+  }
+
   console.log(
-    "✅ Found task to move:",
+    "✅ Moving task:",
     taskToMove.id,
-    (taskToMove as any).text
+    `"${(taskToMove as any).text}"`,
+    `from ${bestCandidate.currentColumn} to ${targetColumn}`
   );
 
   // Get target position
   const targetPosition = generateElementPosition(0, targetColumn);
-
-  // Count existing tasks in target column to get proper Y position
   const targetX = targetPosition.x;
+
+  // Count existing tasks in target column (excluding the task being moved)
   const tasksInTargetColumn = currentData.elements.filter(
-    (el) => Math.abs(el.x - targetX) < 50 && el.y >= 180
+    (el) =>
+      el.id !== taskToMove.id && // Exclude the task being moved
+      Math.abs(el.x - targetX) < 50 &&
+      el.y >= 180 &&
+      el.y < 650 // Exclude summary notes
   );
 
   const newY = 180 + tasksInTargetColumn.length * 90;
@@ -487,19 +565,60 @@ export async function processToolCall(
       };
 
     case "move_task":
-      const newData = moveTaskByText(
+      const moveResult = moveTaskByText(
         currentData,
         toolArgs.taskText,
         toolArgs.targetColumn,
         toolArgs.reasoning
       );
-      return {
-        newData,
-        response: {
-          success: true,
-          message: `Moved task containing "${toolArgs.taskText}" to ${toolArgs.targetColumn} column`,
-        },
-      };
+
+      // Check if the task was actually moved
+      const wasTaskMoved = moveResult !== currentData;
+
+      if (wasTaskMoved) {
+        // Find the moved task to get its actual text for confirmation
+        const targetX =
+          toolArgs.targetColumn === "todo"
+            ? 100
+            : toolArgs.targetColumn === "inprogress"
+            ? 460
+            : 820;
+        const movedTask = moveResult.elements.find(
+          (el) =>
+            el.type === "sticky" &&
+            Math.abs(el.x - targetX) < 50 &&
+            (el as any).text
+              ?.toLowerCase()
+              .includes(toolArgs.taskText.toLowerCase())
+        );
+
+        const actualTaskText = movedTask
+          ? (movedTask as any).text
+          : toolArgs.taskText;
+
+        return {
+          newData: moveResult,
+          response: {
+            success: true,
+            message: `✅ Successfully moved task "${actualTaskText}" to ${toolArgs.targetColumn.toUpperCase()} column`,
+            taskMoved: actualTaskText,
+            targetColumn: toolArgs.targetColumn,
+          },
+        };
+      } else {
+        return {
+          response: {
+            success: false,
+            message: `⚠️ Could not move task with text "${
+              toolArgs.taskText
+            }" - either not found or already in ${toolArgs.targetColumn.toUpperCase()} column`,
+            searchText: toolArgs.taskText,
+            targetColumn: toolArgs.targetColumn,
+            suggestion:
+              "Try using more specific text from the task, or check if the task is already in the target column",
+          },
+        };
+      }
 
     case "update_whiteboard":
       const updatedData = processWhiteboardToolCall(currentData, toolArgs);
