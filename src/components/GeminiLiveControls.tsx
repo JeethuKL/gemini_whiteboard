@@ -29,34 +29,21 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
 
   const { state, connect, disconnect, startRecording, stopRecording, volume, updateSystemInstructionsWithJiraData } = geminiLive;
 
-  // Auto-update system instructions when connected
+  // Auto-update system instructions when connected (one-time only)
   useEffect(() => {
     const updateInstructions = async () => {
       if (state.isConnected) {
         console.log("🔗 Connection established, updating system instructions with Jira data...");
         
-        // Disconnect to apply new instructions immediately
-        console.log("🔌 Disconnecting to apply new instructions...");
-        disconnect();
-        
-        // Wait for disconnection
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
         const success = await updateSystemInstructionsWithJiraData();
         
         if (success) {
-          console.log("🔗 Reconnecting with updated instructions...");
-          try {
-            await connect();
-            console.log("✅ System instructions updated and reconnected successfully!");
-          } catch (error) {
-            console.error('Auto-reconnection failed:', error);
-          }
+          console.log("✅ System instructions updated successfully! New instructions will apply on next reconnection.");
         }
       }
     };
 
-    // Only run this on the initial connection, not subsequent ones
+    // Only run this on the initial connection
     if (state.isConnected) {
       const hasRunUpdate = sessionStorage.getItem('gemini-jira-update-done');
       if (!hasRunUpdate) {
@@ -64,7 +51,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
         updateInstructions();
       }
     }
-  }, [state.isConnected, updateSystemInstructionsWithJiraData, connect, disconnect]);
+  }, [state.isConnected, updateSystemInstructionsWithJiraData]);
 
   const handleConnect = async () => {
     if (!localApiKey) {
@@ -90,40 +77,29 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
     console.log("🔄 Manually refreshing Jira data...");
     const wasConnected = state.isConnected;
     
-    // Always disconnect first to apply new instructions
+    // Disconnect if connected to allow new instructions to take effect
     if (wasConnected) {
       console.log("🔌 Disconnecting to apply new instructions...");
       disconnect();
       // Wait for disconnection
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     const success = await updateSystemInstructionsWithJiraData();
     
     if (success) {
-      console.log("🔗 Reconnecting with updated instructions...");
-      
       // Trigger the whiteboard to hide the welcome screen
       if (typeof (window as any).handleJiraDataLoaded === 'function') {
         (window as any).handleJiraDataLoaded();
       }
       
-      try {
-        await connect();
-        alert('✅ Jira data refreshed and reconnected! Gemini now has your latest team information. Try asking: "Start our standup meeting"');
-      } catch (error) {
-        console.error('Reconnection failed:', error);
-        alert('✅ Jira data refreshed! Please click Connect to rejoin with updated team information.');
+      if (wasConnected) {
+        alert('✅ Jira data refreshed! Please reconnect to apply the updated team information.');
+      } else {
+        alert('✅ Jira data refreshed! You can now connect with the latest team information.');
       }
     } else {
-      if (wasConnected) {
-        try {
-          await connect();
-        } catch (error) {
-          console.error('Reconnection failed:', error);
-        }
-      }
-      alert('❌ Failed to refresh Jira data. Please check your connection.');
+      alert('❌ Failed to refresh Jira data. Please check your Jira proxy server.');
     }
   };
 
