@@ -420,7 +420,7 @@ export default function Whiteboard() {
 
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
-      <Toolbar onAddElement={addElement} />
+      {/* <Toolbar onAddElement={addElement} /> */}
       <GeminiLiveControls />
       
       {/* Whiteboard is always visible now */}
@@ -543,7 +543,7 @@ export default function Whiteboard() {
       </div>
 
       {/* Enhanced Zoom and Control Panel */}
-      <div className="fixed bottom-6 left-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl p-4 flex flex-col gap-3 border border-white/20">
+      {/* <div className="fixed bottom-6 left-6 bg-white/90 backdrop-blur-md rounded-2xl shadow-2xl p-4 flex flex-col gap-3 border border-white/20">
         <div className="text-center">
           <div className="text-xs text-gray-500 font-medium mb-2">CONTROLS</div>
           <button
@@ -552,10 +552,10 @@ export default function Whiteboard() {
             title="Reorganize Kanban columns"
           >
             📋 Auto Organize
-          </button>
+          </button> */}
           
           {/* Test button to manually hide welcome screen - removed since welcome screen is gone */}
-          {false && (
+          {/* {false && (
             <button
               onClick={handleJiraDataLoaded}
               className="w-full px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-300 text-sm font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -586,7 +586,7 @@ export default function Whiteboard() {
             −
           </button>
         </div>
-      </div>
+      </div> */}
 
       <JsonEditor data={data} onDataChange={setData} />
       <NotificationSystem notifications={notifications} onRemove={removeNotification} />
