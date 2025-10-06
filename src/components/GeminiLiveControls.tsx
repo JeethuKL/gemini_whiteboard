@@ -139,9 +139,9 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
   };
 
   return (
-    <div className="fixed top-4 right-4 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-30 min-w-[280px]">
+    <div className="fixed top-4 right-4 bg-white rounded-xl shadow border border-gray-300 p-4 z-30 min-w-[280px]">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
           <FacilitronOrb size={14} />
           Facilitron 
         </h3>
@@ -164,17 +164,17 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
       </div>
 
       {showHelp && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mb-4 p-3 bg-white rounded-lg border">
           <h4 className="font-medium text-blue-800 mb-2">How to use Spark AI with Jira:</h4>
-          <ul className="text-sm text-blue-700 space-y-1">
+          <ul className="text-sm text-gray-700 space-y-1">
             <li>1. Set your API key in settings</li>
             <li>2. Click "Connect" to start session</li>
             <li>3. Click "Start Speaking" and talk</li>
             <li>4. Spark will sync with your Jira project</li>
           </ul>
-          <div className="mt-3 p-2 bg-blue-100 rounded">
-            <p className="text-xs font-medium text-blue-800 mb-1">Try these commands:</p>
-            <ul className="text-xs text-blue-700 space-y-0.5">
+          <div className="mt-3 p-2 bg-gray-100 rounded">
+            <p className="text-xs font-medium text-gray-800 mb-1">Try these commands:</p>
+            <ul className="text-xs text-gray-700 space-y-0.5">
               <li>• "Sync the Jira board"</li>
               <li>• "Show me the team workload"</li>
               <li>• "Start a standup meeting"</li>
@@ -185,7 +185,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
       )}
 
       {showSettings && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+        <div className="mb-4 p-3 bg-white rounded-lg border">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Facilitron API Key
           </label>
@@ -194,18 +194,18 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
             value={localApiKey}
             onChange={(e) => setLocalApiKey(e.target.value)}
             placeholder="Enter your Facilitron API key"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-gray-800 focus:border-transparent"
           />
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleSaveApiKey}
-              className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+              className="px-3 py-1 bg-black text-white text-sm rounded-lg hover:opacity-90 transition-colors"
             >
               Save
             </button>
             <button
               onClick={() => setShowSettings(false)}
-              className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-400 transition-colors"
+              className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300 transition-colors"
             >
               Cancel
             </button>
@@ -216,7 +216,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
               href="https://aistudio.google.com/apikey" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
+              className="text-gray-800 underline"
             >
               Google AI Studio
             </a>
@@ -239,7 +239,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
             <button
               onClick={handleConnect}
               disabled={!isKeySet}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:opacity-90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <FacilitronOrb size={14} />
               Connect
@@ -247,7 +247,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
           ) : (
             <button
               onClick={handleDisconnect}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:opacity-90 transition-colors"
             >
               <PhoneOff size={16} />
               Disconnect
@@ -260,7 +260,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
           <div className="flex gap-2">
             <button
               onClick={handleRefreshJiraData}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-black text-white rounded-lg hover:opacity-90 transition-colors text-sm"
             >
               <RefreshCw size={14} />
               Refresh Jira Data
@@ -274,7 +274,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
             {!state.isRecording ? (
               <button
                 onClick={handleStartRecording}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:opacity-90 transition-colors"
               >
                 <FacilitronOrb size={14} />
                 Start Speaking
@@ -282,7 +282,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
             ) : (
               <button
                 onClick={handleStopRecording}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:opacity-90 transition-colors"
               >
                 <MicOff size={16} />
                 Stop Speaking
@@ -297,7 +297,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
             <Volume2 size={14} className="text-gray-600" />
             <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-100"
+                className="h-full bg-black transition-all duration-100"
                 style={{ width: `${Math.min(volume * 100 * 10, 100)}%` }}
               />
             </div>

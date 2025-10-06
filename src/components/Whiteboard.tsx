@@ -419,7 +419,7 @@ export default function Whiteboard() {
   };
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden">
+    <div className="h-screen w-screen bg-white overflow-hidden">
       {/* <Toolbar onAddElement={addElement} /> */}
       <GeminiLiveControls />
       
@@ -444,92 +444,87 @@ export default function Whiteboard() {
             transformOrigin: '0 0'
           }}
         >
-          {/* Enhanced Grid background with subtle pattern */}
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `
-                radial-gradient(circle at 1px 1px, rgba(99, 102, 241, 0.15) 1px, transparent 0)
-              `,
-              backgroundSize: '24px 24px',
-              backgroundPosition: '0 0'
-            }}
-          />
+          {/* Minimal grid background (gray dots) */}
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.08) 1px, transparent 0)',
+            backgroundSize: '24px 24px',
+            backgroundPosition: '0 0'
+          }} />
           
-          {/* Kanban Columns Background - Enhanced Design */}
+          {/* Kanban Columns Background - Monochrome */}
           <div className="absolute inset-0">
             {/* To Do Column - Enhanced */}
             <div 
-              className="absolute bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl"
+              className="absolute bg-white border-2 border-gray-300 rounded-2xl shadow-md"
               style={{
                 left: '40px',
                 top: '120px', 
                 width: '340px',
                 height: '680px',
-                boxShadow: '0 10px 40px rgba(245, 158, 11, 0.1)'
+                boxShadow: '0 10px 40px rgba(0,0,0,0.05)'
               }}
             >
               <div className="absolute top-6 left-6 right-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-amber-400 rounded-full animate-pulse"></div>
-                    <h2 className="text-amber-800 text-xl font-bold tracking-wide">📋 TO DO</h2>
+                    <div className="w-3 h-3 bg-black rounded-full"></div>
+                    <h2 className="text-gray-900 text-xl font-bold tracking-wide">TO DO</h2>
                   </div>
-                  <span className="text-xs bg-amber-200 text-amber-800 px-3 py-1.5 rounded-full font-semibold shadow-sm">
+                  <span className="text-xs bg-gray-200 text-gray-900 px-3 py-1.5 rounded-full font-semibold shadow-sm">
                     {data.elements.filter(el => el.x >= 40 && el.x <= 380 && el.y >= 120).length}
                   </span>
                 </div>
-                <div className="h-px bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200"></div>
+                <div className="h-px bg-gray-300"></div>
               </div>
             </div>
             
             {/* In Progress Column - Enhanced */}
             <div 
-              className="absolute bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl"
+              className="absolute bg-white border-2 border-gray-300 rounded-2xl shadow-md"
               style={{
                 left: '420px',
                 top: '120px',
                 width: '340px', 
                 height: '680px',
-                boxShadow: '0 10px 40px rgba(59, 130, 246, 0.1)'
+                boxShadow: '0 10px 40px rgba(0,0,0,0.05)'
               }}
             >
               <div className="absolute top-6 left-6 right-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
-                    <h2 className="text-blue-800 text-xl font-bold tracking-wide">🔄 IN PROGRESS</h2>
+                    <div className="w-3 h-3 bg-black rounded-full"></div>
+                    <h2 className="text-gray-900 text-xl font-bold tracking-wide">IN PROGRESS</h2>
                   </div>
-                  <span className="text-xs bg-blue-200 text-blue-800 px-3 py-1.5 rounded-full font-semibold shadow-sm">
+                  <span className="text-xs bg-gray-200 text-gray-900 px-3 py-1.5 rounded-full font-semibold shadow-sm">
                     {data.elements.filter(el => el.x >= 420 && el.x <= 760 && el.y >= 120).length}
                   </span>
                 </div>
-                <div className="h-px bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200"></div>
+                <div className="h-px bg-gray-300"></div>
               </div>
             </div>
             
             {/* Done Column - Enhanced */}
             <div 
-              className="absolute bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-2xl shadow-xl backdrop-blur-sm transition-all hover:shadow-2xl"
+              className="absolute bg-white border-2 border-gray-300 rounded-2xl shadow-md"
               style={{
                 left: '800px',
                 top: '120px',
                 width: '340px',
                 height: '680px',
-                boxShadow: '0 10px 40px rgba(16, 185, 129, 0.1)'
+                boxShadow: '0 10px 40px rgba(0,0,0,0.05)'
               }}
             >
               <div className="absolute top-6 left-6 right-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></div>
-                    <h2 className="text-emerald-800 text-xl font-bold tracking-wide">✅ DONE</h2>
+                    <div className="w-3 h-3 bg-black rounded-full"></div>
+                    <h2 className="text-gray-900 text-xl font-bold tracking-wide">DONE</h2>
                   </div>
-                  <span className="text-xs bg-emerald-200 text-emerald-800 px-3 py-1.5 rounded-full font-semibold shadow-sm">
+                  <span className="text-xs bg-gray-200 text-gray-900 px-3 py-1.5 rounded-full font-semibold shadow-sm">
                     {data.elements.filter(el => el.x >= 800 && el.x <= 1140 && el.y >= 120).length}
                   </span>
                 </div>
-                <div className="h-px bg-gradient-to-r from-emerald-200 via-emerald-300 to-emerald-200"></div>
+                <div className="h-px bg-gray-300"></div>
               </div>
             </div>
           </div>

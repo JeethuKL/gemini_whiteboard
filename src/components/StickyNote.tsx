@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Edit3, Palette } from 'lucide-react';
+import { Edit3 } from 'lucide-react';
 import { StickyNote as StickyNoteType } from '../types/whiteboard';
 
 interface StickyNoteProps {
@@ -11,12 +11,7 @@ interface StickyNoteProps {
 }
 
 const colorOptions = [
-  { name: 'Yellow', value: 'yellow', bg: 'bg-yellow-200', border: 'border-yellow-300' },
-  { name: 'Pink', value: 'pink', bg: 'bg-pink-200', border: 'border-pink-300' },
-  { name: 'Blue', value: 'blue', bg: 'bg-blue-200', border: 'border-blue-300' },
-  { name: 'Green', value: 'green', bg: 'bg-green-200', border: 'border-green-300' },
-  { name: 'Purple', value: 'purple', bg: 'bg-purple-200', border: 'border-purple-300' },
-  { name: 'Orange', value: 'orange', bg: 'bg-orange-200', border: 'border-orange-300' },
+  { name: 'White', value: 'white', bg: 'bg-white', border: 'border-gray-300' },
 ];
 
 export default function StickyNote({ element, onUpdate, onDragStart, onDrag, onDragEnd }: StickyNoteProps) {
@@ -100,15 +95,6 @@ export default function StickyNote({ element, onUpdate, onDragStart, onDrag, onD
           className="p-1 bg-white rounded-full shadow-sm hover:shadow-md transition-shadow"
         >
           <Edit3 size={12} className="text-gray-600" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowColorPicker(!showColorPicker);
-          }}
-          className="p-1 bg-white rounded-full shadow-sm hover:shadow-md transition-shadow"
-        >
-          <Palette size={12} className="text-gray-600" />
         </button>
       </div>
 
