@@ -1,5 +1,6 @@
 # Gemini Whiteboard with Live AI Assistant
 
+
 A collaborative digital whiteboard with integrated Gemini Live API support for real-time voice interaction with AI.
 
 ## Features
