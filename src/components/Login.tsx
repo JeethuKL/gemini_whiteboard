@@ -32,19 +32,19 @@ export default function Login({ onSuccess }: LoginProps) {
     <div className="min-h-screen flex items-center justify-center bg-white">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow border border-gray-300 p-6">
         <div className="mb-4 text-center flex flex-col items-center gap-2">
-          <FacilitronOrb size={28} />
-          <h1 className="text-xl font-semibold text-gray-900">Facilitron</h1>
+          {/* <FacilitronOrb size={28} /> */}
+          <h1 className="text-xl font-semibold font-mono text-gray-900">Facilitron</h1>
           <p className="text-sm text-gray-600">Enter passcode to continue</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-800 mb-1">Passcode</label>
+            {/* <label className="block text-sm font-medium text-gray-800 mb-1">Passcode</label> */}
             <input
               type="password"
               inputMode="numeric"
               value={passcode}
               onChange={(e) => setPasscode(e.target.value)}
-              placeholder={STATIC_PASSCODE}
+              placeholder={"Enter passcode to continue"}
               className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm focus:ring-2 focus:ring-gray-800 focus:border-transparent"
               required
             />
@@ -58,7 +58,7 @@ export default function Login({ onSuccess }: LoginProps) {
           >
             Enter
           </button>
-          <div className="text-xs text-gray-500 text-center">Demo: passcode shown in placeholder</div>
+          {/* <div className="text-xs text-gray-500 text-center">Demo: passcode shown in placeholder</div> */}
         </form>
       </div>
     </div>
