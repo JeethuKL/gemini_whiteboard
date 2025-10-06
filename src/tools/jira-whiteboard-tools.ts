@@ -1,6 +1,10 @@
 import { FunctionDeclaration, Type } from "@google/genai";
 import { WhiteboardData, WhiteboardElement } from "../types/whiteboard";
 
+const PROXY_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PROXY_BASE_URL) ||
+  "https://gemini-whiteboard.onrender.com";
+
 // Simple utility to estimate sticky height based on number of text lines.
 // This keeps vertical spacing consistent and prevents overlap without
 // needing to measure DOM nodes in this data layer.
@@ -24,7 +28,7 @@ async function getRealTeamMembers(): Promise<string[]> {
   try {
     console.log("🔍 Fetching team members from Jira via proxy...");
 
-    const response = await fetch("http://localhost:3001/api/jira/search", {
+    const response = await fetch(`${PROXY_BASE_URL}/api/jira/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -75,7 +79,7 @@ export function isMCPAvailable(): boolean {
 // Ensure proxy server is available
 export async function ensureMCPInitialized(): Promise<boolean> {
   try {
-    const response = await fetch("http://localhost:3001/health");
+    const response = await fetch(`${PROXY_BASE_URL}/health`);
     return response.ok;
   } catch (error) {
     console.warn("⚠️ Proxy server not available:", error);
@@ -225,7 +229,7 @@ async function syncJiraBoard(
   try {
     console.log("🔄 Syncing Jira board via proxy server...");
 
-    const response = await fetch("http://localhost:3001/api/jira/search", {
+    const response = await fetch(`${PROXY_BASE_URL}/api/jira/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -410,7 +414,7 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
       `📊 Getting workload for team members: ${teamMembers.join(", ")}`
     );
 
-    const response = await fetch("http://localhost:3001/api/jira/search", {
+    const response = await fetch(`${PROXY_BASE_URL}/api/jira/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

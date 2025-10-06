@@ -93,7 +93,8 @@ export class MCPAtlassianClient {
       }
 
       // Use proxy server instead of direct API call
-      const proxyUrl = "http://localhost:3001/api/jira/search";
+      const proxyBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PROXY_BASE_URL) || "https://gemini-whiteboard.onrender.com";
+      const proxyUrl = `${proxyBase}/api/jira/search`;
       console.log("🔍 Fetching issues via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -250,7 +251,8 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for updating issues
-      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}`;
+      const proxyBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PROXY_BASE_URL) || "https://gemini-whiteboard.onrender.com";
+      const proxyUrl = `${proxyBase}/api/jira/issue/${issueKey}`;
       console.log("📝 Updating issue via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -283,7 +285,8 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for transitions
-      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}/transitions`;
+      const proxyBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PROXY_BASE_URL) || "https://gemini-whiteboard.onrender.com";
+      const proxyUrl = `${proxyBase}/api/jira/issue/${issueKey}/transitions`;
       console.log("🔄 Transitioning issue via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -322,7 +325,8 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for comments
-      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}/comment`;
+      const proxyBase = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PROXY_BASE_URL) || "https://gemini-whiteboard.onrender.com";
+      const proxyUrl = `${proxyBase}/api/jira/issue/${issueKey}/comment`;
       console.log("💬 Adding comment via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
