@@ -93,7 +93,7 @@ export class MCPAtlassianClient {
       }
 
       // Use proxy server instead of direct API call
-      const proxyUrl = "http://localhost:3001/api/jira/search";
+      const proxyUrl = `/api/jira/search`;
       console.log("🔍 Fetching issues via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -250,7 +250,7 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for updating issues
-      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}`;
+      const proxyUrl = `/api/jira/issue/${issueKey}`;
       console.log("📝 Updating issue via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -283,7 +283,7 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for transitions
-      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}/transitions`;
+      const proxyUrl = `/api/jira/issue/${issueKey}/transitions`;
       console.log("🔄 Transitioning issue via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -322,7 +322,7 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for comments
-      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}/comment`;
+      const proxyUrl = `/api/jira/issue/${issueKey}/comment`;
       console.log("💬 Adding comment via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {

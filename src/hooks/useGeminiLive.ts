@@ -387,7 +387,7 @@ ALWAYS use tools in real-time during conversations - never just describe what sh
       console.log("🔄 Updating system instructions with real Jira data...");
 
       // Fetch current team workload using search endpoint
-      const response = await fetch("http://localhost:3001/api/jira/search", {
+      const response = await fetch(`/api/jira/search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -13,7 +13,7 @@ async function getRealTeamMembers(): Promise<string[]> {
   try {
     console.log("🔍 Fetching team members from Jira via proxy...");
 
-    const response = await fetch("http://localhost:3001/api/jira/search", {
+    const response = await fetch(`/api/jira/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -58,13 +58,13 @@ async function getRealTeamMembers(): Promise<string[]> {
 
 // Check if proxy server is available
 export function isMCPAvailable(): boolean {
-  return true; // Always true since we're using proxy server
+  return true; // Available via same-origin API routes on Vercel
 }
 
 // Ensure proxy server is available
 export async function ensureMCPInitialized(): Promise<boolean> {
   try {
-    const response = await fetch("http://localhost:3001/health");
+    const response = await fetch(`/api/health`);
     return response.ok;
   } catch (error) {
     console.warn("⚠️ Proxy server not available:", error);
@@ -214,7 +214,7 @@ async function syncJiraBoard(
   try {
     console.log("🔄 Syncing Jira board via proxy server...");
 
-    const response = await fetch("http://localhost:3001/api/jira/search", {
+    const response = await fetch(`/api/jira/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -392,7 +392,7 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
       `📊 Getting workload for team members: ${teamMembers.join(", ")}`
     );
 
-    const response = await fetch("http://localhost:3001/api/jira/search", {
+    const response = await fetch(`/api/jira/search`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
