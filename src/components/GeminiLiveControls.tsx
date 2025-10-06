@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Mic, MicOff, Phone, PhoneOff, Settings, Volume2, HelpCircle, RefreshCw } from 'lucide-react';
+import { MicOff, PhoneOff, Settings, Volume2, HelpCircle, RefreshCw } from 'lucide-react';
 import { useGeminiLive } from '../hooks/useGeminiLive';
+import FacilitronOrb from './FacilitronOrb';
 
 interface GeminiLiveControlsProps {
   apiKey?: string;
@@ -141,8 +142,8 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
     <div className="fixed top-4 right-4 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-30 min-w-[280px]">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></div>
-          Gemini Live
+          <FacilitronOrb size={14} />
+          Facilitron 
         </h3>
         <div className="flex gap-1">
           <button
@@ -186,13 +187,13 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
       {showSettings && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Gemini API Key
+            Facilitron API Key
           </label>
           <input
             type="password"
             value={localApiKey}
             onChange={(e) => setLocalApiKey(e.target.value)}
-            placeholder="Enter your Gemini API key"
+            placeholder="Enter your Facilitron API key"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <div className="flex gap-2 mt-2">
@@ -240,7 +241,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
               disabled={!isKeySet}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              <Phone size={16} />
+              <FacilitronOrb size={14} />
               Connect
             </button>
           ) : (
@@ -275,7 +276,7 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
                 onClick={handleStartRecording}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
               >
-                <Mic size={16} />
+                <FacilitronOrb size={14} />
                 Start Speaking
               </button>
             ) : (

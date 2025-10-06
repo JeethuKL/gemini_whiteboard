@@ -4,6 +4,7 @@
   "description": "Proxy server for Jira API calls to bypass CORS",
   "main": "server.js",
   "scripts": {
+    "build": "echo 'no build step for proxy-server'",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },

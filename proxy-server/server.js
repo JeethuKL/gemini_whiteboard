@@ -4,7 +4,7 @@ const axios = require("axios");
 require("dotenv").config({ path: "../.env" });
 
 const app = express();
-const PORT = process.env.PROXY_PORT || 3001;
+const PORT = process.env.PORT || process.env.PROXY_PORT || 3001;
 
 // Enable CORS for all routes
 app.use(cors());
