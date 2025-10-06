@@ -35,11 +35,27 @@ app.get("/health", (req, res) => {
 app.post("/api/jira/search", async (req, res) => {
   try {
     console.log("📞 Proxying Jira search request...");
-    console.log("🎯 Target URL:", `${JIRA_CONFIG.baseURL}/rest/api/3/search`);
+    console.log("🎯 Target URL:", `${JIRA_CONFIG.baseURL}/rest/api/3/search/jql`);
+
+    // Enforce bounded JQL to satisfy Jira Cloud requirements (avoid unbounded queries)
+    const incomingBody = req.body || {};
+    const originalJql = (incomingBody.jql || "").trim();
+    const hasRestriction = /\b(project\s*=|updated\s*[<>]=|created\s*[<>]=|issuekey\s*=|assignee\s*=|reporter\s*=|updated\s*>=\s*-\d+d)/i.test(
+      originalJql
+    );
+    const boundedJql = hasRestriction
+      ? originalJql
+      : `${originalJql ? `(${originalJql}) AND ` : ""}updated >= -30d`;
+
+    if (!hasRestriction) {
+      console.log("🛡️  Added default bound to JQL: updated >= -30d");
+    }
+
+    const payload = { ...incomingBody, jql: boundedJql };
 
     const response = await axios.post(
-      `${JIRA_CONFIG.baseURL}/rest/api/3/search`,
-      req.body,
+      `${JIRA_CONFIG.baseURL}/rest/api/3/search/jql`,
+      payload,
       {
         headers: {
           Authorization: `Basic ${authHeader}`,

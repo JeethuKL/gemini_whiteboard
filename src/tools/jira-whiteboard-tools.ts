@@ -1,6 +1,17 @@
 import { FunctionDeclaration, Type } from "@google/genai";
 import { WhiteboardData, WhiteboardElement } from "../types/whiteboard";
 
+// Simple utility to estimate sticky height based on number of text lines.
+// This keeps vertical spacing consistent and prevents overlap without
+// needing to measure DOM nodes in this data layer.
+function estimateStickyHeight(text: string): number {
+  const lines = text.split("\n").length;
+  const baseHeight = 70; // header + padding
+  const perLine = 20; // approximate line height
+  const clampedLines = Math.max(lines, 1);
+  return baseHeight + clampedLines * perLine;
+}
+
 // Cache for real team members from Jira
 let realTeamMembers: string[] = [];
 
@@ -13,13 +24,13 @@ async function getRealTeamMembers(): Promise<string[]> {
   try {
     console.log("🔍 Fetching team members from Jira via proxy...");
 
-    const response = await fetch(`/api/jira/search`, {
+    const response = await fetch("http://localhost:3001/api/jira/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        jql: "order by updated DESC",
+        jql: "updated >= -30d order by updated DESC",
         maxResults: 50,
         fields: ["assignee"],
       }),
@@ -58,13 +69,13 @@ async function getRealTeamMembers(): Promise<string[]> {
 
 // Check if proxy server is available
 export function isMCPAvailable(): boolean {
-  return true; // Available via same-origin API routes on Vercel
+  return true; // Always true since we're using proxy server
 }
 
 // Ensure proxy server is available
 export async function ensureMCPInitialized(): Promise<boolean> {
   try {
-    const response = await fetch(`/api/health`);
+    const response = await fetch("http://localhost:3001/health");
     return response.ok;
   } catch (error) {
     console.warn("⚠️ Proxy server not available:", error);
@@ -214,15 +225,15 @@ async function syncJiraBoard(
   try {
     console.log("🔄 Syncing Jira board via proxy server...");
 
-    const response = await fetch(`/api/jira/search`, {
+    const response = await fetch("http://localhost:3001/api/jira/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         jql: includeCompleted
-          ? "order by updated DESC"
-          : "status != Done order by updated DESC",
+          ? "updated >= -30d order by updated DESC"
+          : "updated >= -30d AND status != Done order by updated DESC",
         maxResults: 20,
         fields: ["summary", "status", "assignee", "priority", "issuetype"],
       }),
@@ -240,6 +251,7 @@ async function syncJiraBoard(
     let todoY = 180,
       inProgressY = 180,
       doneY = 180;
+    const gapY = 16;
 
     data.issues.forEach((issue: any) => {
       const status = issue.fields.status.name.toLowerCase();
@@ -261,7 +273,9 @@ async function syncJiraBoard(
         x = 460;
         color = "orange";
         y = inProgressY;
-        inProgressY += 90;
+        const text = `🎫 ${issue.key}: ${issue.fields.summary}\n👤 ${assignee}\n⚡ ${priority}`;
+        const height = estimateStickyHeight(text);
+        inProgressY += height + gapY;
       } else if (
         status.includes("done") ||
         status.includes("complete") ||
@@ -270,9 +284,13 @@ async function syncJiraBoard(
         x = 820;
         color = "green";
         y = doneY;
-        doneY += 90;
+        const text = `🎫 ${issue.key}: ${issue.fields.summary}\n👤 ${assignee}\n⚡ ${priority}`;
+        const height = estimateStickyHeight(text);
+        doneY += height + gapY;
       } else {
-        todoY += 90;
+        const text = `🎫 ${issue.key}: ${issue.fields.summary}\n👤 ${assignee}\n⚡ ${priority}`;
+        const height = estimateStickyHeight(text);
+        todoY += height + gapY;
       }
 
       newElements.push({
@@ -392,15 +410,15 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
       `📊 Getting workload for team members: ${teamMembers.join(", ")}`
     );
 
-    const response = await fetch(`/api/jira/search`, {
+    const response = await fetch("http://localhost:3001/api/jira/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         jql: includeCompleted
-          ? "order by updated DESC"
-          : "status != Done order by updated DESC",
+          ? "updated >= -30d order by updated DESC"
+          : "updated >= -30d AND status != Done order by updated DESC",
         maxResults: 100,
         fields: ["summary", "status", "assignee", "priority"],
       }),

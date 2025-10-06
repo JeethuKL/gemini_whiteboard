@@ -81,7 +81,7 @@ export class MCPAtlassianClient {
 
     try {
       // Build JQL query - get recent issues from all projects or specific project
-      let jql = "order by updated DESC";
+      let jql = "updated >= -30d order by updated DESC";
       if (projectKey) {
         jql = `project = "${projectKey}" AND ${jql}`;
       } else if (this.config.jiraProjectsFilter) {
@@ -93,7 +93,7 @@ export class MCPAtlassianClient {
       }
 
       // Use proxy server instead of direct API call
-      const proxyUrl = `/api/jira/search`;
+      const proxyUrl = "http://localhost:3001/api/jira/search";
       console.log("🔍 Fetching issues via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -250,7 +250,7 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for updating issues
-      const proxyUrl = `/api/jira/issue/${issueKey}`;
+      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}`;
       console.log("📝 Updating issue via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -283,7 +283,7 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for transitions
-      const proxyUrl = `/api/jira/issue/${issueKey}/transitions`;
+      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}/transitions`;
       console.log("🔄 Transitioning issue via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -322,7 +322,7 @@ export class MCPAtlassianClient {
 
     try {
       // Use proxy server for comments
-      const proxyUrl = `/api/jira/issue/${issueKey}/comment`;
+      const proxyUrl = `http://localhost:3001/api/jira/issue/${issueKey}/comment`;
       console.log("💬 Adding comment via proxy:", proxyUrl);
 
       const response = await fetch(proxyUrl, {
@@ -381,7 +381,7 @@ export class MCPAtlassianClient {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/rest/api/3/search`, {
+      const response = await fetch(`${this.baseUrl}/rest/api/3/search/jql`, {
         method: "POST",
         headers: {
           Authorization: this.authHeader,
