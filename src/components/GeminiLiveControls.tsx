@@ -12,6 +12,9 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
   const [showHelp, setShowHelp] = useState(false);
   const [localApiKey, setLocalApiKey] = useState('');
   const [isKeySet, setIsKeySet] = useState(false);
+  const [jiraUrl, setJiraUrl] = useState('');
+  const [jiraUser, setJiraUser] = useState('');
+  const [jiraToken, setJiraToken] = useState('');
 
   // Initialize API key from various sources
   useEffect(() => {
@@ -22,6 +25,11 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
     console.log("Setting API key:", effectiveKey.substring(0, 10) + "...");
     setLocalApiKey(effectiveKey);
     setIsKeySet(!!effectiveKey);
+
+    // Load Jira override creds for dev switching
+    setJiraUrl(localStorage.getItem('jira-override-url') || '');
+    setJiraUser(localStorage.getItem('jira-override-user') || '');
+    setJiraToken(localStorage.getItem('jira-override-token') || '');
   }, [apiKey]);
 
   const geminiLive = useGeminiLive({ 
@@ -221,6 +229,56 @@ export default function GeminiLiveControls({ apiKey }: GeminiLiveControlsProps) 
               Google AI Studio
             </a>
           </p>
+
+          {/* Jira override (dev use) */}
+          <div className="mt-4 border-t pt-3">
+            <div className="text-sm font-medium text-gray-800 mb-2">Jira Override (dev)</div>
+            <input
+              type="text"
+              value={jiraUrl}
+              onChange={(e) => setJiraUrl(e.target.value)}
+              placeholder="https://your-domain.atlassian.net"
+              className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm mb-2"
+            />
+            <input
+              type="text"
+              value={jiraUser}
+              onChange={(e) => setJiraUser(e.target.value)}
+              placeholder="jira-email@example.com"
+              className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm mb-2"
+            />
+            <input
+              type="password"
+              value={jiraToken}
+              onChange={(e) => setJiraToken(e.target.value)}
+              placeholder="Jira API token"
+              className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm mb-2"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem('jira-override-url', jiraUrl.trim());
+                  localStorage.setItem('jira-override-user', jiraUser.trim());
+                  localStorage.setItem('jira-override-token', jiraToken.trim());
+                  alert('Saved Jira override. Your next requests will use these headers.');
+                }}
+                className="px-3 py-1 bg-black text-white text-sm rounded-lg hover:opacity-90"
+              >
+                Save Overrides
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('jira-override-url');
+                  localStorage.removeItem('jira-override-user');
+                  localStorage.removeItem('jira-override-token');
+                  setJiraUrl(''); setJiraUser(''); setJiraToken('');
+                }}
+                className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

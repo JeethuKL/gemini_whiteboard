@@ -10,17 +10,28 @@ const PORT = process.env.PORT || process.env.PROXY_PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Jira configuration from environment variables
-const JIRA_CONFIG = {
+// Jira configuration from environment variables (default)
+const ENV_JIRA_CONFIG = {
   baseURL: process.env.VITE_JIRA_URL,
   username: process.env.VITE_JIRA_USERNAME,
   apiToken: process.env.VITE_JIRA_API_TOKEN,
 };
 
-// Create basic auth header
-const authHeader = Buffer.from(
-  `${JIRA_CONFIG.username}:${JIRA_CONFIG.apiToken}`
-).toString("base64");
+// Helper to get effective Jira config per-request (optional header overrides)
+function getEffectiveJiraConfig(req) {
+  const headerUrl = req.header('X-Jira-Url');
+  const headerUser = req.header('X-Jira-Username');
+  const headerToken = req.header('X-Jira-Token');
+  return {
+    baseURL: headerUrl || ENV_JIRA_CONFIG.baseURL,
+    username: headerUser || ENV_JIRA_CONFIG.username,
+    apiToken: headerToken || ENV_JIRA_CONFIG.apiToken,
+  };
+}
+
+function getAuthHeader(username, token) {
+  return Buffer.from(`${username}:${token}`).toString("base64");
+}
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -35,7 +46,9 @@ app.get("/health", (req, res) => {
 app.post("/api/jira/search", async (req, res) => {
   try {
     console.log("📞 Proxying Jira search request...");
-    console.log("🎯 Target URL:", `${JIRA_CONFIG.baseURL}/rest/api/3/search/jql`);
+    const cfg = getEffectiveJiraConfig(req);
+    const authHeader = getAuthHeader(cfg.username, cfg.apiToken);
+    console.log("🎯 Target URL:", `${cfg.baseURL}/rest/api/3/search/jql`);
 
     // Enforce bounded JQL to satisfy Jira Cloud requirements (avoid unbounded queries)
     const incomingBody = req.body || {};
@@ -54,7 +67,7 @@ app.post("/api/jira/search", async (req, res) => {
     const payload = { ...incomingBody, jql: boundedJql };
 
     const response = await axios.post(
-      `${JIRA_CONFIG.baseURL}/rest/api/3/search/jql`,
+      `${cfg.baseURL}/rest/api/3/search/jql`,
       payload,
       {
         headers: {
@@ -90,8 +103,11 @@ app.put("/api/jira/issue/:issueKey", async (req, res) => {
     const { issueKey } = req.params;
     console.log(`📝 Updating Jira issue: ${issueKey}`);
 
+    const cfg = getEffectiveJiraConfig(req);
+    const authHeader = getAuthHeader(cfg.username, cfg.apiToken);
+
     const response = await axios.put(
-      `${JIRA_CONFIG.baseURL}/rest/api/3/issue/${issueKey}`,
+      `${cfg.baseURL}/rest/api/3/issue/${issueKey}`,
       req.body,
       {
         headers: {
@@ -126,8 +142,11 @@ app.post("/api/jira/issue/:issueKey/transitions", async (req, res) => {
     const { issueKey } = req.params;
     console.log(`🔄 Transitioning Jira issue: ${issueKey}`);
 
+    const cfg = getEffectiveJiraConfig(req);
+    const authHeader = getAuthHeader(cfg.username, cfg.apiToken);
+
     const response = await axios.post(
-      `${JIRA_CONFIG.baseURL}/rest/api/3/issue/${issueKey}/transitions`,
+      `${cfg.baseURL}/rest/api/3/issue/${issueKey}/transitions`,
       req.body,
       {
         headers: {
@@ -162,8 +181,11 @@ app.post("/api/jira/issue/:issueKey/comment", async (req, res) => {
     const { issueKey } = req.params;
     console.log(`💬 Adding comment to Jira issue: ${issueKey}`);
 
+    const cfg = getEffectiveJiraConfig(req);
+    const authHeader = getAuthHeader(cfg.username, cfg.apiToken);
+
     const response = await axios.post(
-      `${JIRA_CONFIG.baseURL}/rest/api/3/issue/${issueKey}/comment`,
+      `${cfg.baseURL}/rest/api/3/issue/${issueKey}/comment`,
       req.body,
       {
         headers: {
@@ -197,8 +219,11 @@ app.get("/api/jira/project", async (req, res) => {
   try {
     console.log("📁 Fetching Jira projects...");
 
+    const cfg = getEffectiveJiraConfig(req);
+    const authHeader = getAuthHeader(cfg.username, cfg.apiToken);
+
     const response = await axios.get(
-      `${JIRA_CONFIG.baseURL}/rest/api/3/project`,
+      `${cfg.baseURL}/rest/api/3/project`,
       {
         headers: {
           Authorization: `Basic ${authHeader}`,

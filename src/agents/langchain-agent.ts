@@ -225,7 +225,7 @@ When ANY session begins, you MUST:
 
 ## REAL TEAM CONTEXT
 - The team composition is DYNAMIC and comes from Jira data
-- Team member names will be in the workload response (e.g., "Deepak V", "gnanasambandam.sr2022csbs", "LA Jeeththenthar CSE")
+- Team member names will be in the workload response
 - Tasks and their status come from the sync_jira_board response
 - NEVER assume team composition - always discover it first
 

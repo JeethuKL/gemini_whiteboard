@@ -102,6 +102,13 @@ export class MCPAtlassianClient {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          ...(localStorage.getItem('jira-override-url')
+            ? {
+                'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+                'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+                'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+              }
+            : {}),
         },
         body: JSON.stringify({
           jql,
@@ -260,6 +267,13 @@ export class MCPAtlassianClient {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          ...(localStorage.getItem('jira-override-url')
+            ? {
+                'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+                'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+                'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+              }
+            : {}),
         },
         body: JSON.stringify({ fields }),
       });
@@ -294,6 +308,13 @@ export class MCPAtlassianClient {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          ...(localStorage.getItem('jira-override-url')
+            ? {
+                'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+                'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+                'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+              }
+            : {}),
         },
         body: JSON.stringify({
           transition: { id: transitionId },
@@ -334,6 +355,13 @@ export class MCPAtlassianClient {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          ...(localStorage.getItem('jira-override-url')
+            ? {
+                'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+                'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+                'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+              }
+            : {}),
         },
         body: JSON.stringify({
           body: {

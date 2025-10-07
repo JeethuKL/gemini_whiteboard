@@ -32,6 +32,14 @@ async function getRealTeamMembers(): Promise<string[]> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // Optional Jira override headers for dev use
+        ...(localStorage.getItem('jira-override-url')
+          ? {
+              'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+              'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+              'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+            }
+          : {}),
       },
       body: JSON.stringify({
         jql: "updated >= -30d order by updated DESC",
@@ -233,6 +241,13 @@ async function syncJiraBoard(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(localStorage.getItem('jira-override-url')
+          ? {
+              'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+              'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+              'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+            }
+          : {}),
       },
       body: JSON.stringify({
         jql: includeCompleted
@@ -418,6 +433,13 @@ async function getTeamWorkload(args: any): Promise<{ response: any }> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(localStorage.getItem('jira-override-url')
+          ? {
+              'X-Jira-Url': localStorage.getItem('jira-override-url')!,
+              'X-Jira-Username': localStorage.getItem('jira-override-user') || '',
+              'X-Jira-Token': localStorage.getItem('jira-override-token') || '',
+            }
+          : {}),
       },
       body: JSON.stringify({
         jql: includeCompleted
